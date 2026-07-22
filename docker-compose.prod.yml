@@ -8,7 +8,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-weave}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}"
       POSTGRES_DB: ${POSTGRES_DB:-weave}
     volumes:
       - db_data:/var/lib/postgresql/data
@@ -25,7 +25,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-weave}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-weave}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY 를 .env 에 설정하세요}
+      SECRET_KEY: "${SECRET_KEY:?SECRET_KEY 를 .env 에 설정하세요}"
       SESSION_HTTPS_ONLY: "true"
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -47,7 +47,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      DOMAIN: ${DOMAIN:?DOMAIN 을 .env 에 설정하세요 (예: weave.example.com)}
+      DOMAIN: "${DOMAIN:?DOMAIN 을 .env 에 설정하세요 - 예 weave.example.com}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
