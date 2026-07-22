@@ -1,0 +1,40 @@
+# Render Blueprint — Postgres + Weave 웹 서비스를 한 번에 생성.
+# Render 대시보드: New → Blueprint → 이 저장소 연결 → Apply.
+# 배포 후 웹 서비스 환경변수에서 OPENAI_API_KEY 를 채워야 회의 전사/AI 추출이 동작.
+
+databases:
+  - name: weave-db
+    databaseName: weave
+    user: weave
+    plan: free
+
+services:
+  - type: web
+    name: weave
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # 시작 시 마이그레이션 후 uvicorn ($PORT는 Render가 주입)
+    dockerCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: weave-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true           # 세션 서명 키 자동 생성
+      - key: SESSION_HTTPS_ONLY
+        value: "true"                 # https 전용 보안 쿠키
+      - key: OPENAI_API_KEY
+        sync: false                   # 대시보드에서 직접 입력 (비밀)
+      # --- 선택: Google Drive / Google 로그인 쓰려면 채우기 ---
+      # - key: GOOGLE_CLIENT_ID
+      #     sync: false
+      # - key: GOOGLE_CLIENT_SECRET
+      #     sync: false
+      # - key: GOOGLE_REDIRECT_URI
+      #     value: https://<네-서비스>.onrender.com/drive/callback
+      # - key: GOOGLE_AUTH_REDIRECT_URI
+      #     value: https://<네-서비스>.onrender.com/auth/google/callback

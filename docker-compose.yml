@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-weave}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weave}
+      POSTGRES_DB: ${POSTGRES_DB:-weave}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-weave} -d ${POSTGRES_DB:-weave}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-weave}:${POSTGRES_PASSWORD:-weave}@db:5432/${POSTGRES_DB:-weave}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8000/drive/callback}
+      GOOGLE_AUTH_REDIRECT_URI: ${GOOGLE_AUTH_REDIRECT_URI:-http://localhost:8000/auth/google/callback}
+      # 로컬 개발: http 콜백 허용 + 스코프 순서 완화 (Google OAuth 흔한 이슈)
+      OAUTHLIB_INSECURE_TRANSPORT: "1"
+      OAUTHLIB_RELAX_TOKEN_SCOPE: "1"
+      # 세션 쿠키 서명 키
+      SECRET_KEY: ${SECRET_KEY:-dev-insecure-secret-change-me}
+      # 옵시디언: 호스트 홈 경로(경로 변환용). 홈이 /host 에 마운트됨.
+      HOST_HOME: ${HOST_HOME:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/code
+      # 옵시디언: 호스트 홈 폴더를 읽기전용 마운트. 사용자가 설정 UI에서 볼트 경로 지정.
+      # (Windows 드라이브 경로의 콜론 파싱 문제를 피하려 long-form 사용)
+      - type: bind
+        source: ${HOST_HOME:-./.empty_vault}
+        target: /host
+        read_only: true
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+volumes:
+  db_data:
