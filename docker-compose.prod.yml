@@ -1,0 +1,59 @@
+# 운영용 (EC2 등 서버). 개발용 docker-compose.yml 과 별도.
+# 실행: docker compose -f docker-compose.prod.yml up -d --build
+# 비밀값(POSTGRES_PASSWORD, SECRET_KEY, OPENAI_API_KEY, DOMAIN)은 서버의 .env 에.
+
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-weave}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}
+      POSTGRES_DB: ${POSTGRES_DB:-weave}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-weave} -d ${POSTGRES_DB:-weave}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # DB 포트는 외부에 노출하지 않음 (컨테이너 네트워크 내부에서만 접근)
+
+  api:
+    build: ./backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-weave}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-weave}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY 를 .env 에 설정하세요}
+      SESSION_HTTPS_ONLY: "true"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      GOOGLE_AUTH_REDIRECT_URI: ${GOOGLE_AUTH_REDIRECT_URI:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*"
+    expose:
+      - "8000"   # Caddy만 내부에서 접근 (호스트 공개 X)
+
+  caddy:
+    image: caddy:2
+    restart: always
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN 을 .env 에 설정하세요 (예: weave.example.com)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:
