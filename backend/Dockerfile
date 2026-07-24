@@ -2,7 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /code
 
-# System deps kept minimal; psycopg2-binary ships its own libpq.
+# ffmpeg: 25MB 초과 오디오를 조각내 전사할 때 사용. psycopg2-binary는 libpq 내장.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

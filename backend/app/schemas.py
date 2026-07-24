@@ -137,9 +137,9 @@ class NoteCreate(BaseModel):
 
 
 class DocumentCreate(BaseModel):
-    """관련문서 참조 추가 → DOCUMENT 소스."""
+    """관련문서 참조 추가 → DOCUMENT 소스. title 비우면 URL 페이지 제목 자동 사용."""
 
-    title: str = Field(min_length=1, max_length=300)
+    title: str | None = Field(default=None, max_length=300)
     url: str | None = None
 
 

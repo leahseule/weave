@@ -40,6 +40,10 @@ body.auth-view #bn-fab { display: none !important; }
 .auth-google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 11px; border: 1px solid var(--outline-variant); border-radius: 10px; background: var(--card); color: var(--on-surface); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .auth-google:hover { background: var(--surface-variant); }
 .auth-google .g-icon { flex: 0 0 auto; display: block; }
+/* Google Drive 인라인 로고 정렬 (섹션 제목·문서 카드·메뉴 등) */
+.drive-logo { flex: 0 0 auto; vertical-align: middle; }
+.section-title .drive-logo { margin-right: 2px; }
+.doc-card .drive-logo { margin-top: 1px; }
 .auth-toggle { text-align: center; font-size: 13px; color: var(--on-surface-variant); margin-top: 20px; }
 .auth-toggle a { color: var(--secondary); font-weight: 600; cursor: pointer; }
 
@@ -329,6 +333,9 @@ main { max-width: 1200px; margin: 0 auto; padding: 44px 40px 110px; }
 .md-body .md-pre code { background: none; padding: 0; }
 .md-body .md-quote { border-left: 3px solid var(--outline-variant); padding: 2px 0 2px 14px; margin: 0 0 12px; color: var(--on-surface-variant); }
 .md-body .md-hr { border: none; border-top: 1px solid var(--outline-variant); margin: 18px 0; }
+.md-body .md-table { border-collapse: collapse; margin: 4px 0 14px; font-size: 13.5px; display: block; overflow-x: auto; max-width: 100%; }
+.md-body .md-table th, .md-body .md-table td { border: 1px solid var(--outline-variant); padding: 6px 10px; text-align: left; }
+.md-body .md-table th { background: var(--surface-variant); font-weight: 600; }
 .md-body a { color: var(--secondary); }
 .md-body strong { font-weight: 700; }
 .md-body .wikilink { color: var(--secondary); background: var(--secondary-container); padding: 0 5px; border-radius: 5px; font-size: 13px; }
@@ -485,6 +492,36 @@ main { max-width: 1200px; margin: 0 auto; padding: 44px 40px 110px; }
 .record-bars { display: flex; align-items: center; gap: 5px; height: 56px; }
 .record-bars span { width: 5px; height: 100%; background: var(--secondary); border-radius: 3px; transform: scaleY(0.15); transform-origin: center; transition: transform 0.06s ease; }
 .record-alt { margin-top: 10px; }
+
+/* 녹음 중 컴팩트 헤더 + 메모 (그래놀라식) */
+.record-live-head { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.record-live-head .record-timer { font-size: 26px; }
+.record-live-head .record-bars { height: 30px; gap: 4px; }
+.record-live-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--error); animation: rec-dot 1.2s ease-in-out infinite; }
+@keyframes rec-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+.record-btn.sm { width: 54px; height: 54px; box-shadow: none; }
+.record-btn.sm .material-symbols-outlined { font-size: 26px; }
+.record-btn.recording.sm { box-shadow: 0 4px 14px rgba(217,45,32,0.4); }
+.record-btn.sm.pause-btn { background: var(--surface-variant); color: var(--on-surface); }
+.record-live-status { font-size: 13px; font-weight: 600; color: var(--on-surface-variant); min-width: 62px; }
+.record-live-dot.paused { background: var(--on-surface-variant); animation: none; }
+.record-bars.paused span { opacity: 0.3; }
+/* 녹음 중 메모: 메모 상세 카드와 동일한 노트패드 UX */
+.record-note-card { width: 100%; max-width: 640px; text-align: left; }
+.record-note-label { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; letter-spacing: 0.03em; color: var(--on-surface-variant); text-transform: uppercase; margin-bottom: 12px; }
+.record-note-label .material-symbols-outlined { font-size: 16px; }
+/* 마크다운 라이브 에디터 (Enter로 렌더 적용) */
+.mde { position: relative; outline: none; font-size: 15px; line-height: 1.8; color: var(--on-surface); }
+.mde .mde-block { min-height: 1.7em; }
+.mde .mde-raw { white-space: pre-wrap; word-break: break-word; }
+.mde .mde-rendered { cursor: text; }
+.mde .mde-rendered > *:first-child { margin-top: 0; }
+.mde .mde-rendered > *:last-child { margin-bottom: 0; }
+.mde .mde-rendered hr.md-hr { margin: 10px 0; }  /* 에디터에서 가로줄 보이게 */
+.mde.mde-empty::before { content: attr(data-ph); color: var(--on-surface-variant); pointer-events: none; position: absolute; top: 0; left: 0; }
+.record-note-editor { min-height: 380px; }
+.paste-editor { min-height: 400px; }
+.note-edit-editor { min-height: 200px; }
 
 /* --- Drive 검색 --- */
 .drive-search-box { display: flex; align-items: center; gap: 8px; border: 1px solid var(--outline-variant); border-radius: 10px; padding: 0 12px; margin-bottom: 16px; background: var(--card); }

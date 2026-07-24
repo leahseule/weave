@@ -25,6 +25,7 @@ from app.models import (
 from pathlib import Path
 
 from app.schemas import DocumentCreate, NoteCreate, ObsidianNoteCreate, SourceOut
+from app.services import link_title
 from app.services import obsidian as obs_svc
 from app.services.extraction import extract_meeting
 from app.services.transcription import TranscriptionError, transcribe
@@ -123,6 +124,7 @@ def _save_source(
     enrich: bool = True,
     ai_title: bool = True,
     attendees: list[str] | None = None,
+    note: str | None = None,
 ) -> Source:
     source = Source(
         project_id=project_id,
@@ -131,6 +133,7 @@ def _save_source(
         title=title,
         body=body,
         attendees=attendees or None,
+        note=(note or None),
     )
     db.add(source)
     db.commit()
@@ -196,22 +199,34 @@ def create_document(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """관련문서 참조 추가 → DOCUMENT. 같은 URL이면 중복 생성 없이 기존 것 반환."""
+    """관련문서 참조 추가 → DOCUMENT. 제목을 비우면 페이지 제목을 자동으로 가져옴."""
     access_project(db, project_id, user, ProjectRole.EDITOR)
-    if payload.url:
+    url = (payload.url or "").strip()
+    if url:
         dup = (
             db.query(Source)
             .filter(
                 Source.project_id == project_id,
                 Source.type == SourceType.DOCUMENT,
-                Source.body == payload.url,
+                Source.body == url,
             )
             .first()
         )
         if dup:
             return dup
+
+    title = (payload.title or "").strip()
+    if not title and url:
+        title = link_title.fetch_page_title(url) or ""
+    if not title:  # 그래도 없으면 호스트명 폴백
+        try:
+            from urllib.parse import urlparse
+            title = urlparse(url).hostname or url or "링크"
+        except Exception:  # noqa: BLE001
+            title = url or "링크"
+
     return _save_source(
-        db, project_id, SourceType.DOCUMENT, payload.title, payload.url or "", enrich=False
+        db, project_id, SourceType.DOCUMENT, title, url, enrich=False
     )
 
 
@@ -225,10 +240,11 @@ def create_meeting_from_audio(
     file: UploadFile = File(...),
     title: str | None = Form(default=None),
     attendees: str | None = Form(default=None),
+    note: str | None = Form(default=None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """녹음/음성파일 업로드 → Whisper 전사 → MEETING. attendees는 콤마로 구분된 이름."""
+    """녹음/음성파일 업로드 → Whisper 전사 → MEETING. attendees는 콤마 구분, note는 녹음 중 메모."""
     access_project(db, project_id, user, ProjectRole.EDITOR)
 
     content = file.file.read()
@@ -243,5 +259,5 @@ def create_meeting_from_audio(
     meeting_title = title or f"회의 녹음 ({file.filename})"
     return _save_source(
         db, project_id, SourceType.MEETING, meeting_title, transcript,
-        MeetingOrigin.AUDIO, attendees=names,
+        MeetingOrigin.AUDIO, attendees=names, note=(note or "").strip() or None,
     )

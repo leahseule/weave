@@ -39,11 +39,12 @@ const api = {
   removeMember: (id, userId) => api._json("DELETE", `/projects/${id}/members/${userId}`),
   pasteNote: (id, data) => api._json("POST", `/projects/${id}/notes`, data),
   createDocument: (id, data) => api._json("POST", `/projects/${id}/documents`, data),
-  audioMeeting: async (id, file, title, attendees) => {
+  audioMeeting: async (id, file, title, attendees, note) => {
     const fd = new FormData();
     fd.append("file", file);
     if (title) fd.append("title", title);
     if (attendees && attendees.length) fd.append("attendees", attendees.join(","));
+    if (note && note.trim()) fd.append("note", note.trim());
     const res = await fetch(`/projects/${id}/meetings/audio`, { method: "POST", body: fd });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -75,8 +76,19 @@ const api = {
 
 // --- Helpers ---------------------------------------------------------------
 const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+// Google Drive 공식 로고 (인라인 SVG). h=높이(px), 폭은 비율 유지.
+const driveLogo = (h = 18) => `<svg class="drive-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 87.3 78" width="${Math.round(h * 1.12)}" height="${h}" aria-hidden="true"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44c-.8 1.4-1.2 2.95-1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>`;
 const esc = (s) => (s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmtDate = (iso) => new Date(iso).toLocaleDateString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit" });
+// Blob을 파일로 내려받기 (전사 실패 시 녹음 보관 등)
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+const recTimestamp = () => { const d = new Date(), p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; };
 function fmtWhen(iso) {
   if (!iso) return "";
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -139,7 +151,8 @@ function showContextMenu(x, y, items, opts = {}) {
   closeContextMenu();
   const menu = el(`<div class="context-menu"></div>`);
   for (const it of items) {
-    const b = el(`<button class="ctx-menu-item ${it.danger ? "danger" : ""}"><span class="material-symbols-outlined">${it.icon}</span>${esc(it.label)}</button>`);
+    const iconHtml = it.iconHtml || `<span class="material-symbols-outlined">${it.icon}</span>`;
+    const b = el(`<button class="ctx-menu-item ${it.danger ? "danger" : ""}">${iconHtml}${esc(it.label)}</button>`);
     b.addEventListener("click", () => { closeContextMenu(); it.onClick(); });
     menu.append(b);
   }
@@ -228,6 +241,7 @@ async function editText(title, current, save, opts = {}) {
 // --- 녹음 상태 정리 ---------------------------------------------------------
 let rec = null;
 let lastHash = null; // 스크롤 보존용: 같은 경로 재렌더인지 판별
+let lastDetailHash = null; // '최근(이어보기)'용: 마지막으로 본 프로젝트/회의 상세
 function cleanupRec() {
   if (!rec) return;
   try { if (rec.recorder && rec.recorder.state !== "inactive") rec.recorder.stop(); } catch (_) {}
@@ -332,7 +346,9 @@ async function render() {
   const projM = hash.match(/^#\/projects\/(\d+)/);
   const isCalendar = hash.startsWith("#/calendar");
   const isSettings = hash.startsWith("#/settings");
-  const activeNav = isSettings ? "profile" : isCalendar ? "calendar" : (!projM ? "home" : null);
+  if (projM && !recordM) lastDetailHash = hash;  // 마지막으로 본 상세 화면 기억
+  const isList = !projM && !isCalendar && !isSettings;
+  const activeNav = isSettings ? "profile" : isCalendar ? "calendar" : isList ? "folders" : "home";
   document.querySelectorAll(".bn-item").forEach((b) => b.classList.toggle("active", b.dataset.nav === activeNav));
   // + FAB는 프로젝트 상세에서만 (홈·상세·녹음·캘린더에선 숨김)
   document.getElementById("bn-fab").style.display = projM && !sourceM && !recordM ? "" : "none";
@@ -440,16 +456,16 @@ async function renderSettings(view) {
   acct.append(logoutBtn);
   view.append(acct);
 
-  const card = el(`<section class="card"><h2 class="section-title"><span class="material-symbols-outlined">cloud</span>Google Drive</h2></section>`);
+  const card = el(`<section class="card"><h2 class="section-title">${driveLogo(20)}Google Drive</h2></section>`);
   if (!st.configured) {
     card.append(el(`<p class="summary-empty">서버에 OAuth 설정(GOOGLE_CLIENT_ID/SECRET)이 없습니다. weave/.env 에 값을 넣고 재시작하세요.</p>`));
   } else if (st.connected) {
-    card.append(el(`<p class="summary-text" style="margin-bottom:16px"><span class="material-symbols-outlined" style="color:var(--secondary);vertical-align:middle">check_circle</span> 연결됨 — 회의 키워드로 Drive 문서를 검색할 수 있습니다.</p>`));
+    card.append(el(`<p class="summary-text" style="margin-bottom:16px"><span class="material-symbols-outlined" style="color:var(--secondary);vertical-align:middle">check_circle</span> 연결됨 — 내 Google Drive 문서를 검색해 프로젝트에 참조 문서로 붙일 수 있어요.</p>`));
     const disc = el(`<button class="btn">연결 해제</button>`);
     disc.addEventListener("click", async () => { try { await api.driveDisconnect(); toast("연결 해제됨"); render(); } catch (e) { toast(e.message); } });
     card.append(disc);
   } else {
-    card.append(el(`<p class="summary-text" style="margin-bottom:16px">연결하면 회의 키워드로 내 Drive 문서를 찾아 추천합니다.</p>`));
+    card.append(el(`<p class="summary-text" style="margin-bottom:16px">연결하면 내 Google Drive 문서를 검색해 프로젝트에 참조로 붙일 수 있어요. (회의 태그 기반 추천도 제공)</p>`));
     const btn = el(`<button class="btn btn-primary"><span class="material-symbols-outlined">link</span>Google Drive 연결</button>`);
     btn.addEventListener("click", () => { window.location.href = "/drive/connect"; });
     card.append(btn);
@@ -549,6 +565,8 @@ async function renderRecord(view, pid) {
   view.append(screen);
   let attendeeCtl = null;
   let attendees = [];
+  let noteText = "";  // 녹음 중 작성하는 메모 (그래놀라식)
+  let noteEditor = null;  // 마크다운 라이브 에디터
 
   const showIdle = () => {
     screen.replaceChildren();
@@ -570,13 +588,50 @@ async function renderRecord(view, pid) {
 
   const showRecording = () => {
     screen.replaceChildren();
+    // 녹음 상태 헤더 (컴팩트)
+    const head = el(`<div class="record-live-head"></div>`);
+    const dot = el(`<div class="record-live-dot"></div>`);
+    const status = el(`<div class="record-live-status">녹음 중</div>`);
     const timer = el(`<div class="record-timer">00:00</div>`);
     const bars = el(`<div class="record-bars">${Array.from({ length: 9 }).map(() => "<span></span>").join("")}</div>`);
-    const stop = el(`<button class="record-btn recording" title="정지"><span class="material-symbols-outlined">stop</span></button>`);
+    const pauseBtn = el(`<button class="record-btn sm pause-btn" title="일시중지"><span class="material-symbols-outlined">pause</span></button>`);
+    const stop = el(`<button class="record-btn recording sm" title="정지"><span class="material-symbols-outlined">stop</span></button>`);
     stop.addEventListener("click", stopRecording);
-    screen.append(el(`<div class="record-hint">녹음 중…</div>`), timer, bars, stop);
+    const setPausedUI = (p) => {
+      pauseBtn.querySelector(".material-symbols-outlined").textContent = p ? "play_arrow" : "pause";
+      pauseBtn.title = p ? "재개" : "일시중지";
+      dot.classList.toggle("paused", p);
+      status.textContent = p ? "일시중지됨" : "녹음 중";
+      bars.classList.toggle("paused", p);
+    };
+    pauseBtn.addEventListener("click", () => {
+      if (!rec || !rec.recorder) return;
+      if (rec.recorder.state === "recording") {
+        rec.recorder.pause();
+        rec.pauseStart = Date.now();
+        clearInterval(rec.timer); rec.timer = null;
+        cancelAnimationFrame(rec.raf); rec.raf = null;
+        setPausedUI(true);
+      } else if (rec.recorder.state === "paused") {
+        rec.pausedMs += Date.now() - rec.pauseStart;
+        rec.recorder.resume();
+        startTimer();
+        startWave();
+        setPausedUI(false);
+      }
+    });
+    head.append(dot, status, timer, bars, pauseBtn, stop);
+    screen.append(head);
+    // 그래놀라식: 녹음 중 메모 (마크다운 라이브 에디터 — Enter로 렌더 적용)
+    const noteCard = el(`<section class="card record-note-card"></section>`);
+    noteCard.append(el(`<div class="record-note-label"><span class="material-symbols-outlined">stylus_note</span> 내 메모 · Markdown (Enter로 적용)</div>`));
+    noteEditor = mdLiveEditor(noteText, "회의 중 떠오른 생각을 자유롭게 남겨보세요…");
+    noteEditor.element.classList.add("record-note-editor");
+    noteCard.append(noteEditor.element);
+    screen.append(noteCard);
     rec.timerEl = timer;
     rec.barEls = [...bars.querySelectorAll("span")];
+    setTimeout(() => noteEditor && noteEditor.focus(), 100);
   };
 
   const showProcessing = () => {
@@ -584,11 +639,30 @@ async function renderRecord(view, pid) {
     screen.append(el(`<div class="loading" style="flex-direction:column;gap:16px"><span class="spinner" style="width:34px;height:34px"></span><div>전사하고 있어요…</div></div>`));
   };
 
+  const startTimer = () => {
+    rec.timer = setInterval(() => {
+      const s = Math.floor((Date.now() - rec.startedAt - rec.pausedMs) / 1000);
+      if (rec.timerEl) rec.timerEl.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    }, 250);
+  };
+  const startWave = () => {
+    if (!rec.analyser) return;
+    const tick = () => {
+      rec.analyser.getByteFrequencyData(rec.waveData);
+      rec.barEls.forEach((b, i) => { b.style.transform = `scaleY(${0.12 + (rec.waveData[i * 2] / 255) * 0.88})`; });
+      rec.raf = requestAnimationFrame(tick);
+    };
+    tick();
+  };
+
   async function startRecording() {
     if (attendeeCtl) attendees = attendeeCtl.get();  // 녹음 시작 시점 참석자 확정
     let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // AGC(자동 게인) 끄고 노이즈 억제·에코 제거 → 조용할 때 감도 과하게 오르는 것 방지
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+      });
     } catch (e) { toast("마이크 권한이 필요해요"); return; }
 
     const mime = MediaRecorder.isTypeSupported("audio/webm")
@@ -597,33 +671,25 @@ async function renderRecord(view, pid) {
     const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     const chunks = [];
     recorder.addEventListener("dataavailable", (e) => { if (e.data.size) chunks.push(e.data); });
-    rec = { recorder, stream, chunks, mime, startedAt: Date.now(), timer: null, raf: null, audioCtx: null };
+    rec = { recorder, stream, chunks, mime, startedAt: Date.now(), pausedMs: 0, pauseStart: 0, timer: null, raf: null, audioCtx: null, analyser: null, waveData: null };
     recorder.start();
     showRecording();
-
-    rec.timer = setInterval(() => {
-      const s = Math.floor((Date.now() - rec.startedAt) / 1000);
-      rec.timerEl.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-    }, 250);
+    startTimer();
 
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       rec.audioCtx = new AudioCtx();
-      const analyser = rec.audioCtx.createAnalyser();
-      analyser.fftSize = 64;
-      rec.audioCtx.createMediaStreamSource(stream).connect(analyser);
-      const data = new Uint8Array(analyser.frequencyBinCount);
-      const tick = () => {
-        analyser.getByteFrequencyData(data);
-        rec.barEls.forEach((b, i) => { b.style.transform = `scaleY(${0.15 + (data[i * 2] / 255) * 0.85})`; });
-        rec.raf = requestAnimationFrame(tick);
-      };
-      tick();
+      rec.analyser = rec.audioCtx.createAnalyser();
+      rec.analyser.fftSize = 64;
+      rec.audioCtx.createMediaStreamSource(stream).connect(rec.analyser);
+      rec.waveData = new Uint8Array(rec.analyser.frequencyBinCount);
+      startWave();
     } catch (_) {}
   }
 
   async function stopRecording() {
     if (!rec || !rec.recorder) return;
+    if (noteEditor) noteText = noteEditor.getValue();  // 화면 교체 전에 메모 확정
     const { recorder, chunks, stream, mime } = rec;
     clearInterval(rec.timer);
     cancelAnimationFrame(rec.raf);
@@ -640,11 +706,13 @@ async function renderRecord(view, pid) {
 
     const title = `회의 녹음 ${new Date().toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`;
     try {
-      const src = await api.audioMeeting(pid, file, title, attendees);
+      const src = await api.audioMeeting(pid, file, title, attendees, noteText);
       toast("회의 추가됨");
       location.hash = `#/projects/${pid}/sources/${src.id}`;
     } catch (e) {
-      toast(e.message || "전사 실패");
+      // 전사 실패 시 녹음 유실 방지: 오디오 파일을 자동으로 내려받아 보관
+      downloadBlob(file, `회의녹음_${recTimestamp()}.${ext}`);
+      toast(`${e.message || "전사 실패"} — 녹음 파일을 저장했어요`);
       location.hash = `#/projects/${pid}`;
     }
   }
@@ -936,7 +1004,33 @@ function mdToHtml(src) {
     if (!line.trim()) { i++; continue; }
     const h = line.match(/^(#{1,6})\s+(.*)$/);
     if (h) { const lvl = h[1].length; out.push(`<h${lvl} class="md-h">${inline(h[2])}</h${lvl}>`); i++; continue; }
-    if (/^\s*([-*_])\s*\1\s*\1[\s\1]*$/.test(line)) { out.push('<hr class="md-hr">'); i++; continue; }
+    if (/^\s*([-*_])[ \t]*(?:\1[ \t]*){2,}$/.test(line)) { out.push('<hr class="md-hr">'); i++; continue; }
+    // 표 (GFM): 헤더 행 + |---|---| 구분선 + 데이터 행
+    if (line.includes("|") && i + 1 < lines.length) {
+      const cells = (l) => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+      const sep = cells(lines[i + 1]);
+      if (sep.length >= 1 && sep.every((c) => /^:?-+:?$/.test(c))) {
+        const headers = cells(line);
+        const aligns = sep.map((c) => {
+          const L = c.startsWith(":"), R = c.endsWith(":");
+          return L && R ? "center" : R ? "right" : L ? "left" : "";
+        });
+        i += 2;
+        const rows = [];
+        while (i < lines.length && lines[i].includes("|") && lines[i].trim()) { rows.push(cells(lines[i])); i++; }
+        const al = (idx) => (aligns[idx] ? ` style="text-align:${aligns[idx]}"` : "");
+        let html = '<table class="md-table"><thead><tr>';
+        headers.forEach((h, idx) => { html += `<th${al(idx)}>${inline(h)}</th>`; });
+        html += "</tr></thead><tbody>";
+        for (const row of rows) {
+          html += "<tr>";
+          headers.forEach((_, idx) => { html += `<td${al(idx)}>${inline(row[idx] || "")}</td>`; });
+          html += "</tr>";
+        }
+        out.push(html + "</tbody></table>");
+        continue;
+      }
+    }
     if (/^\s*>\s?/.test(line)) {
       const buf = [];
       while (i < lines.length && /^\s*>\s?/.test(lines[i])) { buf.push(lines[i].replace(/^\s*>\s?/, "")); i++; }
@@ -972,6 +1066,94 @@ function mdBlock(text) {
   const div = el(`<div class="md-body"></div>`);
   div.innerHTML = mdToHtml(text);
   return div;
+}
+
+// 마크다운 라이브 에디터 (옵시디언식): 줄을 쓰고 Enter를 누르면 그 줄이 렌더링돼 적용된다.
+// 렌더된 줄은 원본을 data-md에 보관 → 텍스트 유실 없음. getValue()로 원본 마크다운 반환.
+function mdLiveEditor(initial = "", placeholder = "") {
+  const root = el(`<div class="mde md-body" contenteditable="true" spellcheck="false"></div>`);
+  root.dataset.ph = placeholder;
+
+  const rawBlock = (text = "") => { const b = el(`<div class="mde-block mde-raw"><br></div>`); if (text) b.textContent = text; return b; };
+  const renderedBlock = (md) => { const b = el(`<div class="mde-block mde-rendered"></div>`); b.dataset.md = md; b.innerHTML = mdToHtml(md) || "<br>"; return b; };
+
+  const caretTo = (block, atStart = false) => {
+    const r = document.createRange();
+    r.selectNodeContents(block);
+    r.collapse(atStart);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+  };
+  const blockOf = (node) => {
+    while (node && node !== root && !(node.nodeType === 1 && node.classList && node.classList.contains("mde-block"))) node = node.parentNode;
+    return (node && node.classList && node.classList.contains("mde-block")) ? node : null;
+  };
+  const curBlock = () => { const s = window.getSelection(); return s.rangeCount ? blockOf(s.getRangeAt(0).startContainer) : null; };
+
+  const renderBlock = (block) => {
+    const md = block.textContent;
+    if (!md.trim()) return block;  // 빈 줄은 그대로
+    const rb = renderedBlock(md);
+    block.replaceWith(rb);
+    return rb;
+  };
+  const editBlock = (block) => {
+    const raw = rawBlock(block.dataset.md || "");
+    block.replaceWith(raw);
+    return raw;
+  };
+  const syncEmpty = () => root.classList.toggle("mde-empty", getValue().trim() === "");
+
+  root.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const block = curBlock();
+      if (!block) return;
+      const done = block.classList.contains("mde-raw") ? renderBlock(block) : block;
+      const nb = rawBlock("");
+      done.after(nb);
+      caretTo(nb);
+      syncEmpty();
+    }
+  });
+  // 렌더된 줄을 클릭하면 원본(raw)으로 열어 편집
+  root.addEventListener("mousedown", (e) => {
+    const rb = e.target.closest ? e.target.closest(".mde-rendered") : null;
+    if (rb && root.contains(rb)) { e.preventDefault(); caretTo(editBlock(rb)); }
+  });
+  root.addEventListener("input", syncEmpty);
+  root.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const t = ((e.clipboardData || window.clipboardData).getData("text") || "").replace(/\r\n/g, "\n");
+    // 여러 줄 붙여넣기: 첫 줄만 현재 줄에, 나머지는 렌더 줄로
+    const parts = t.split("\n");
+    document.execCommand("insertText", false, parts[0] || "");
+    let cur = curBlock();
+    for (let i = 1; i < parts.length; i++) {
+      if (cur && cur.classList.contains("mde-raw")) cur = renderBlock(cur);
+      const nb = parts[i].trim() ? renderedBlock(parts[i]) : rawBlock("");
+      (cur || root).after ? cur.after(nb) : root.append(nb);
+      cur = nb;
+    }
+    if (cur) { const tail = rawBlock(""); cur.after(tail); caretTo(tail); }
+    syncEmpty();
+  });
+
+  function getValue() {
+    return [...root.querySelectorAll(".mde-block")]
+      .map((b) => b.classList.contains("mde-rendered") ? (b.dataset.md || "") : b.textContent)
+      .join("\n").replace(/\s+$/, "");
+  }
+
+  // 초기화: 각 줄을 렌더 줄로, 끝에 편집용 빈 줄
+  for (const line of String(initial || "").split("\n")) {
+    if (line.trim()) root.append(renderedBlock(line));
+  }
+  root.append(rawBlock(""));
+  syncEmpty();
+
+  return { element: root, getValue, focus: () => { const last = root.lastElementChild; if (last) caretTo(last); } };
 }
 
 // 상세 내용 카드: 보기 ↔ 인라인 편집 토글 (모달 없이 화면에서 바로 수정)
@@ -1132,23 +1314,21 @@ function buildNoteCard(s) {
       wrap.append(el(`<p class="summary-empty">메모가 없습니다.</p>`));
     }
   };
-  let ta = null;
+  let editor = null;
   const enterEdit = () => {
     editBtn.hidden = true; cancelBtn.hidden = false; saveBtn.hidden = false;
     wrap.replaceChildren();
-    ta = el(`<textarea class="inline-edit note-edit" placeholder="회의 중 떠오른 생각·할 일·인상을 자유롭게…"></textarea>`);
-    ta.value = s.note || "";
-    wrap.append(ta);
-    const grow = () => { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
-    ta.addEventListener("input", grow);
-    grow();
-    ta.focus();
+    editor = mdLiveEditor(s.note || "", "회의 중 떠오른 생각을 자유롭게 남겨보세요…");
+    editor.element.classList.add("note-edit-editor");
+    wrap.append(editor.element);
+    editor.focus();
   };
   cancelBtn.addEventListener("click", renderView);
   saveBtn.addEventListener("click", async () => {
     saveBtn.disabled = true;
     saveBtn.innerHTML = `<span class="spinner"></span>`;
-    try { await api.updateSource(s.id, { note: ta.value }); s.note = ta.value; toast("저장됨"); renderView(); }
+    const v = editor ? editor.getValue() : "";
+    try { await api.updateSource(s.id, { note: v }); s.note = v; toast("저장됨"); renderView(); }
     catch (e) { toast(e.message); saveBtn.disabled = false; saveBtn.textContent = "저장"; }
   });
   editBtn.addEventListener("click", enterEdit);
@@ -1303,11 +1483,12 @@ function renderDocCard(d) {
   const url = (d.body || "").trim();
   const hasLink = !!url;
   const isDrive = /(?:drive|docs)\.google\.com/i.test(url);
-  const icon = !hasLink ? "description" : isDrive ? "cloud" : "link";
+  const icon = !hasLink ? "description" : "link";
+  const iconHtml = isDrive ? driveLogo(22) : `<span class="material-symbols-outlined doc-card-icon">${icon}</span>`;
   const sourceLabel = !hasLink ? "링크 없음" : isDrive ? "Google Drive · 열기" : "링크 · 열기";
   const noteHtml = d.note && d.note.trim() ? `<div class="doc-card-note">${esc(d.note)}</div>` : "";
   const inner =
-    `<span class="material-symbols-outlined doc-card-icon">${icon}</span>` +
+    iconHtml +
     `<div class="doc-card-body"><div class="doc-card-name">${esc(d.title)}</div>` +
     `<div class="doc-card-sub">${sourceLabel} · ${fmtDate(d.created_at)}</div>${noteHtml}</div>` +
     (hasLink ? `<span class="material-symbols-outlined doc-card-open">open_in_new</span>` : "");
@@ -1427,16 +1608,19 @@ function openPasteModal(projectId) {
   const modal = el(`
     <div>
       <h3>메모 추가하기</h3>
-      <div class="field"><textarea id="pm-text" class="note-input" placeholder="여기에 메모를 입력하세요. 제목·요약·할 일은 자동으로 정리됩니다."></textarea></div>
+      <div class="field" id="pm-field"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="pm-cancel">취소</button>
         <button class="btn btn-primary" id="pm-save">메모 추가</button>
       </div>
     </div>`);
+  const editor = mdLiveEditor("", "메모를 입력하세요. 제목·요약·할 일은 AI가 정리해요.");
+  editor.element.classList.add("paste-editor");
+  modal.querySelector("#pm-field").append(editor.element);
   modal.querySelector("#pm-cancel").addEventListener("click", closeModal);
   const saveBtn = modal.querySelector("#pm-save");
   saveBtn.addEventListener("click", async () => {
-    const text = modal.querySelector("#pm-text").value.trim();
+    const text = editor.getValue().trim();
     if (!text) { toast("내용을 입력하세요"); return; }
     saveBtn.innerHTML = `<span class="spinner"></span> 분석 중...`;
     saveBtn.disabled = true;
@@ -1444,7 +1628,7 @@ function openPasteModal(projectId) {
     catch (e) { toast(e.message); saveBtn.innerHTML = "메모 추가"; saveBtn.disabled = false; }
   });
   openModal(modal);
-  setTimeout(() => modal.querySelector("#pm-text").focus(), 50);
+  setTimeout(() => editor.focus(), 50);
 }
 
 function driveIcon(mime) {
@@ -1467,7 +1651,7 @@ async function openDriveSearchModal(projectId, initialQuery = "") {
   }
   const modal = el(`
     <div>
-      <h3>Drive에서 문서 검색</h3>
+      <h3 style="display:flex;align-items:center;gap:8px">${driveLogo(20)} Drive에서 문서 검색</h3>
       <div class="drive-search-box">
         <span class="material-symbols-outlined" id="ds-icon">search</span>
         <input id="ds-q" placeholder="파일명 또는 내용으로 검색">
@@ -1661,7 +1845,7 @@ function openLinkModal(projectId) {
     <div>
       <h3>링크 추가</h3>
       <div class="field"><label>링크 (URL)</label><input id="lk-url" placeholder="https://... (노션·웹페이지·문서 등)"></div>
-      <div class="field"><label>이름 (선택)</label><input id="lk-title" placeholder="비우면 링크 주소로 자동">
+      <div class="field"><label>이름 (선택)</label><input id="lk-title" placeholder="비워두면 페이지 제목을 자동으로 가져와요">
         <div class="hint">웹페이지·문서 링크를 프로젝트에 참조로 남깁니다.</div></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="lk-cancel">취소</button>
@@ -1669,13 +1853,16 @@ function openLinkModal(projectId) {
       </div>
     </div>`);
   modal.querySelector("#lk-cancel").addEventListener("click", closeModal);
-  modal.querySelector("#lk-save").addEventListener("click", async () => {
+  const saveBtn = modal.querySelector("#lk-save");
+  saveBtn.addEventListener("click", async () => {
     const url = modal.querySelector("#lk-url").value.trim();
     if (!url) { toast("링크를 입력하세요"); return; }
-    let title = modal.querySelector("#lk-title").value.trim();
-    if (!title) { try { title = new URL(url).hostname.replace(/^www\./, ""); } catch (_) { title = url; } }
-    try { await api.createDocument(projectId, { title, url }); closeModal(); toast("링크 추가됨"); render(); }
-    catch (e) { toast(e.message); }
+    const title = modal.querySelector("#lk-title").value.trim();
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = `<span class="spinner"></span>`;
+    // 이름을 비우면 title 미전송 → 서버가 페이지 제목을 자동으로 가져옴
+    try { await api.createDocument(projectId, { url, title: title || undefined }); closeModal(); toast("링크 추가됨"); render(); }
+    catch (e) { toast(e.message); saveBtn.disabled = false; saveBtn.textContent = "추가"; }
   });
   openModal(modal);
   setTimeout(() => modal.querySelector("#lk-url").focus(), 50);
@@ -1685,9 +1872,9 @@ function openAudioModal(projectId) {
   const modal = el(`
     <div>
       <h3>음성 업로드 → 회의</h3>
-      <div class="field"><label>제목 (선택)</label><input id="am-title" placeholder="비우면 파일명 사용"></div>
+      <div class="field"><label>제목 (선택)</label><input id="am-title" placeholder="비워두면 파일명으로"></div>
       <div class="field"><label>음성 파일</label><input id="am-file" type="file" accept="audio/*">
-        <div class="hint">Whisper로 전사 후 자동 추출됩니다. 짧은 녹음(25MB 이내) 권장.</div></div>
+        <div class="hint">Whisper로 전사 후 자동 추출됩니다. 긴 녹음은 자동으로 조각내 처리해요(최대 300MB).</div></div>
       <div class="field"><label>참석자 (선택)</label><div id="am-att"></div></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="am-cancel">취소</button>
@@ -1751,10 +1938,10 @@ function currentProjectId() {
 document.querySelectorAll(".bn-item").forEach((btn) => {
   btn.addEventListener("click", () => {
     const nav = btn.dataset.nav;
-    if (nav === "home") location.hash = "#/";
+    if (nav === "home") location.hash = lastDetailHash || "#/";   // 최근(이어보기)
+    else if (nav === "folders") location.hash = "#/";             // 프로젝트 목록
     else if (nav === "calendar") location.hash = "#/calendar";
     else if (nav === "profile") location.hash = "#/settings";
-    else toast("준비 중인 기능이에요");
   });
 });
 
@@ -1780,7 +1967,7 @@ function historyMenuItems(pid) {
 // 레퍼런스(문서) 추가 항목 — Reference 하단 버튼 & FAB 공용
 function referenceMenuItems(pid) {
   return [
-    { label: "Drive에서 검색", icon: "cloud_download", onClick: () => openDriveSearchModal(pid) },
+    { label: "Drive에서 검색", iconHtml: driveLogo(18), onClick: () => openDriveSearchModal(pid) },
     { label: "링크 추가", icon: "link", onClick: () => openLinkModal(pid) },
   ];
 }
