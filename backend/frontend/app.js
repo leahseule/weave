@@ -1978,12 +1978,12 @@ function referenceMenuItems(pid) {
 
 async function openFileUploadModal(projectId) {
   const st = await api.uploadStatus().catch(() => ({ configured: false }));
-  if (!st.configured) { toast("파일 업로드가 아직 설정되지 않았어요 (S3 미설정)"); return; }
+  if (!st.configured) { toast("파일 업로드 기능이 아직 준비되지 않았어요"); return; }
   const modal = el(`
     <div>
       <h3>파일 업로드</h3>
       <div class="field"><input id="fu-file" type="file"></div>
-      <div class="hint">파일이 클라우드(S3)에 저장되고 이 프로젝트에 참조로 첨부돼요.</div>
+      <div class="hint">선택한 파일이 이 프로젝트의 참고자료로 첨부돼요.</div>
       <div class="auth-err" id="fu-err" hidden></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="fu-cancel">취소</button>
@@ -2003,7 +2003,7 @@ async function openFileUploadModal(projectId) {
       const ctype = file.type || "application/octet-stream";
       const { upload_url, key } = await api.presignUpload(file.name, ctype);
       const put = await fetch(upload_url, { method: "PUT", headers: { "Content-Type": ctype }, body: file });
-      if (!put.ok) throw new Error(`S3 업로드 실패 (${put.status}) — 버킷 CORS 설정을 확인하세요`);
+      if (!put.ok) throw new Error(`업로드에 실패했어요 (오류 ${put.status}). 잠시 후 다시 시도해 주세요.`);
       await api.createDocument(projectId, { url: `/files/${key}`, title: file.name });
       closeModal();
       toast("파일 업로드됨");
