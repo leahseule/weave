@@ -31,6 +31,8 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
       GOOGLE_AUTH_REDIRECT_URI: ${GOOGLE_AUTH_REDIRECT_URI:-}
+      # 구글이 scope 순서/표기를 바꿔 돌려줘도 토큰 교환이 실패하지 않도록
+      OAUTHLIB_RELAX_TOKEN_SCOPE: "1"
     depends_on:
       db:
         condition: service_healthy

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -9,6 +11,7 @@ from app.schemas import Credentials, UserOut
 from app.services import oauth_login
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger("weave.auth")
 
 
 def _claim_orphans_if_first(db: Session, user: User) -> None:
@@ -72,6 +75,7 @@ def google_callback(
     try:
         info = oauth_login.exchange(code, state)
     except Exception:  # noqa: BLE001
+        logger.exception("Google 로그인 콜백 교환 실패")  # 원인 추적용
         return RedirectResponse("/?auth=error")
 
     email = info["email"]
