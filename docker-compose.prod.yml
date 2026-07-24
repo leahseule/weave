@@ -33,6 +33,11 @@ services:
       GOOGLE_AUTH_REDIRECT_URI: ${GOOGLE_AUTH_REDIRECT_URI:-}
       # 구글이 scope 순서/표기를 바꿔 돌려줘도 토큰 교환이 실패하지 않도록
       OAUTHLIB_RELAX_TOKEN_SCOPE: "1"
+      # S3 파일 업로드 (선택)
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      S3_BUCKET: ${S3_BUCKET:-}
     depends_on:
       db:
         condition: service_healthy

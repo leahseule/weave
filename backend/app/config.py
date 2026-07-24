@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     # 운영(https)에서는 True로 → 쿠키를 https 전용(secure)으로. 로컬(http)은 False.
     session_https_only: bool = False
 
+    # S3 파일 업로드 (presigned URL). 없으면 파일 업로드 기능만 비활성.
+    aws_region: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    s3_bucket: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

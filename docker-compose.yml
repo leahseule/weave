@@ -29,6 +29,11 @@ services:
       OAUTHLIB_RELAX_TOKEN_SCOPE: "1"
       # 세션 쿠키 서명 키
       SECRET_KEY: ${SECRET_KEY:-dev-insecure-secret-change-me}
+      # S3 파일 업로드 (선택)
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      S3_BUCKET: ${S3_BUCKET:-}
       # 옵시디언: 호스트 홈 경로(경로 변환용). 홈이 /host 에 마운트됨.
       HOST_HOME: ${HOST_HOME:-}
     ports:

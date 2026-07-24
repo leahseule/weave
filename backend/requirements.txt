@@ -11,3 +11,4 @@ google-auth-oauthlib>=1.2
 google-api-python-client>=2.130
 bcrypt>=4.1
 itsdangerous>=2.1
+boto3>=1.34

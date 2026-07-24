@@ -155,6 +155,13 @@ class ObsidianConfig(BaseModel):
     path: str = Field(min_length=1)
 
 
+class PresignRequest(BaseModel):
+    """S3 업로드 URL 요청."""
+
+    filename: str = Field(min_length=1, max_length=255)
+    content_type: str = "application/octet-stream"
+
+
 class SourceOut(ORMModel):
     id: int
     type: SourceType

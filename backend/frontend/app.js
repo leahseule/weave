@@ -71,6 +71,8 @@ const api = {
   obsidianClearConfig: () => api._json("DELETE", "/obsidian/config"),
   obsidianSearch: (q) => api._json("GET", `/obsidian/search?q=${encodeURIComponent(q)}`),
   obsidianRecent: () => api._json("GET", "/obsidian/recent"),
+  uploadStatus: () => api._json("GET", "/uploads/status"),
+  presignUpload: (filename, contentType) => api._json("POST", "/uploads/presign", { filename, content_type: contentType }),
   addObsidianNote: (projectId, path) => api._json("POST", `/projects/${projectId}/obsidian-notes`, { path }),
 };
 
@@ -1482,10 +1484,11 @@ const SOURCE_META = {
 function renderDocCard(d) {
   const url = (d.body || "").trim();
   const hasLink = !!url;
+  const isUpload = url.startsWith("/files/");
   const isDrive = /(?:drive|docs)\.google\.com/i.test(url);
-  const icon = !hasLink ? "description" : "link";
+  const icon = !hasLink ? "description" : isUpload ? "attach_file" : "link";
   const iconHtml = isDrive ? driveLogo(22) : `<span class="material-symbols-outlined doc-card-icon">${icon}</span>`;
-  const sourceLabel = !hasLink ? "링크 없음" : isDrive ? "Google Drive · 열기" : "링크 · 열기";
+  const sourceLabel = !hasLink ? "링크 없음" : isDrive ? "Google Drive · 열기" : isUpload ? "업로드 파일 · 다운로드" : "링크 · 열기";
   const noteHtml = d.note && d.note.trim() ? `<div class="doc-card-note">${esc(d.note)}</div>` : "";
   const inner =
     iconHtml +
@@ -1967,9 +1970,52 @@ function historyMenuItems(pid) {
 // 레퍼런스(문서) 추가 항목 — Reference 하단 버튼 & FAB 공용
 function referenceMenuItems(pid) {
   return [
+    { label: "파일 업로드", icon: "upload_file", onClick: () => openFileUploadModal(pid) },
     { label: "Drive에서 검색", iconHtml: driveLogo(18), onClick: () => openDriveSearchModal(pid) },
     { label: "링크 추가", icon: "link", onClick: () => openLinkModal(pid) },
   ];
+}
+
+async function openFileUploadModal(projectId) {
+  const st = await api.uploadStatus().catch(() => ({ configured: false }));
+  if (!st.configured) { toast("파일 업로드가 아직 설정되지 않았어요 (S3 미설정)"); return; }
+  const modal = el(`
+    <div>
+      <h3>파일 업로드</h3>
+      <div class="field"><input id="fu-file" type="file"></div>
+      <div class="hint">파일이 클라우드(S3)에 저장되고 이 프로젝트에 참조로 첨부돼요.</div>
+      <div class="auth-err" id="fu-err" hidden></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="fu-cancel">취소</button>
+        <button class="btn btn-primary" id="fu-up">업로드</button>
+      </div>
+    </div>`);
+  const err = modal.querySelector("#fu-err");
+  modal.querySelector("#fu-cancel").addEventListener("click", closeModal);
+  const upBtn = modal.querySelector("#fu-up");
+  upBtn.addEventListener("click", async () => {
+    const file = modal.querySelector("#fu-file").files[0];
+    if (!file) { toast("파일을 선택하세요"); return; }
+    err.hidden = true;
+    upBtn.disabled = true;
+    upBtn.innerHTML = `<span class="spinner"></span> 업로드 중...`;
+    try {
+      const ctype = file.type || "application/octet-stream";
+      const { upload_url, key } = await api.presignUpload(file.name, ctype);
+      const put = await fetch(upload_url, { method: "PUT", headers: { "Content-Type": ctype }, body: file });
+      if (!put.ok) throw new Error(`S3 업로드 실패 (${put.status}) — 버킷 CORS 설정을 확인하세요`);
+      await api.createDocument(projectId, { url: `/files/${key}`, title: file.name });
+      closeModal();
+      toast("파일 업로드됨");
+      render();
+    } catch (e) {
+      err.textContent = e.message;
+      err.hidden = false;
+      upBtn.disabled = false;
+      upBtn.textContent = "업로드";
+    }
+  });
+  openModal(modal);
 }
 
 // FAB 전체 메뉴 = 히스토리 + 레퍼런스(문서) 추가
