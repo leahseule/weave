@@ -479,17 +479,19 @@ function buildObsidianCard(obst) {
   } else {
     card.append(el(`<p class="settings-hint">옵시디언 볼트 폴더의 경로를 입력하면 노트를 검색해 메모로 가져올 수 있어요. (홈 폴더 <code>C:\\Users\\...</code> 안에 있는 볼트만 지원)</p>`));
     const box = el(`
-      <div class="settings-form">
-        <input id="ob-path" class="settings-input" placeholder="예: C:\\Users\\사용자\\Documents\\MyVault">
-        <button class="btn btn-primary" id="ob-connect">연결</button>
-      </div>
-      <p class="settings-err" id="ob-err" hidden></p>`);
+      <div>
+        <div class="settings-form">
+          <input id="ob-path" class="settings-input" placeholder="예: C:\\Users\\사용자\\Documents\\MyVault">
+          <button class="btn btn-primary" id="ob-connect">연결</button>
+        </div>
+        <p class="settings-err" id="ob-err" hidden></p>
+      </div>`);
     const input = box.querySelector("#ob-path");
     const btn = box.querySelector("#ob-connect");
     const err = box.querySelector("#ob-err");
     const connect = async () => {
       const path = input.value.trim();
-      if (!path) return;
+      if (!path) { err.textContent = "볼트 경로를 입력하세요"; err.hidden = false; return; }
       err.hidden = true;
       btn.disabled = true;
       btn.innerHTML = `<span class="spinner"></span>`;
