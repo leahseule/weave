@@ -39,7 +39,7 @@ body.auth-view #bn-fab { display: none !important; }
 .auth-or::before, .auth-or::after { content: ""; flex: 1; height: 1px; background: var(--outline-variant); }
 .auth-google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 11px; border: 1px solid var(--outline-variant); border-radius: 10px; background: var(--card); color: var(--on-surface); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .auth-google:hover { background: var(--surface-variant); }
-.auth-google .g-mark { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 1px solid var(--outline-variant); color: #4285F4; font-weight: 700; font-size: 13px; font-family: Arial, sans-serif; }
+.auth-google .g-icon { flex: 0 0 auto; display: block; }
 .auth-toggle { text-align: center; font-size: 13px; color: var(--on-surface-variant); margin-top: 20px; }
 .auth-toggle a { color: var(--secondary); font-weight: 600; cursor: pointer; }
 
