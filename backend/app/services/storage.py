@@ -33,7 +33,10 @@ def _client():
         region_name=settings.aws_region,
         aws_access_key_id=settings.aws_access_key_id,
         aws_secret_access_key=settings.aws_secret_access_key,
-        config=Config(signature_version="s3v4"),
+        # 리전 엔드포인트를 명시해야 presigned URL이 글로벌(us-east-1)로 안 나옴
+        # → 리전 불일치 301 리다이렉트로 CORS가 깨지는 문제 방지
+        endpoint_url=f"https://s3.{settings.aws_region}.amazonaws.com",
+        config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
     )
 
 
