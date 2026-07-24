@@ -711,11 +711,13 @@ async function renderProject(view, id) {
   document.getElementById("bn-fab").style.display = canEdit() ? "" : "none";
   view.replaceChildren();
 
-  // 제목 (편집 가능자만 꾹 눌러 편집)
-  const h1 = el(`<h1 class="page-title ${canEdit() ? "longpress" : ""}" style="margin:0 0 6px" ${canEdit() ? 'title="꾹 눌러 편집"' : ""}>${esc(p.name)}</h1>`);
-  if (canEdit()) attachLongPress(h1, () => [
-    { label: "이름 수정", icon: "edit", onClick: () => editText("프로젝트 이름", p.name, (v) => api.updateProject(p.id, { name: v })) },
-  ]);
+  // 제목 (편집 가능자만: 꾹 누르거나 더블클릭해 편집)
+  const h1 = el(`<h1 class="page-title ${canEdit() ? "longpress" : ""}" style="margin:0 0 6px" ${canEdit() ? 'title="꾹 누르거나 더블클릭해 편집"' : ""}>${esc(p.name)}</h1>`);
+  if (canEdit()) {
+    const editName = () => editText("프로젝트 이름", p.name, (v) => api.updateProject(p.id, { name: v }));
+    attachLongPress(h1, () => [{ label: "이름 수정", icon: "edit", onClick: editName }]);
+    h1.addEventListener("dblclick", editName);
+  }
   view.append(h1);
   const roleTag = viewRole && viewRole !== "owner" ? ` · ${viewRole === "viewer" ? "뷰어(읽기 전용)" : "에디터"}` : "";
   view.append(el(`<p class="page-sub" style="margin-bottom:28px">최종 업데이트 ${fmtWhen(p.updated_at)}${roleTag}</p>`));
