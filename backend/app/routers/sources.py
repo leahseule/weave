@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.auth import access_project, access_source, get_current_user
 from app.db import get_db
-from app.models import ContextItem, ProjectRole, Source, User
+from app.models import ContextItem, ProjectRole, Source, SourceType, User
+from app.routers.meetings import _enrich_source
 from app.schemas import SourceCreate, SourceOut, SourceUpdate
 
 router = APIRouter(tags=["sources"])
@@ -74,8 +75,14 @@ def update_source(
         source.project_id = new_pid
     if "title" in data:
         source.title = data["title"]
+    enrich_note = False
     if "body" in data:
         source.body = data["body"]
+        # 빈 메모로 만든 뒤 첫 내용을 저장하는 경우 → AI로 제목·요약·할 일 정리.
+        # 이미 요약이 있는(=한번 정리된) 메모는 사용자가 다듬었을 수 있어 덮어쓰지 않음.
+        body_now = (data["body"] or "").strip()
+        if source.type == SourceType.NOTE and body_now and not (source.summary or "").strip():
+            enrich_note = True
     if "note" in data:
         source.note = data["note"]
     if "attendees" in data:
@@ -83,6 +90,9 @@ def update_source(
 
     db.commit()
     db.refresh(source)
+    if enrich_note:
+        _enrich_source(db, source)  # AI 정리 (best-effort, 자체 commit)
+        db.refresh(source)
     return source
 
 

@@ -47,6 +47,9 @@ def _enrich_source(db: Session, source: Source, ai_title: bool = True) -> None:
 
     ai_title=False면 제목을 AI로 덮어쓰지 않는다(옵시디언 파일명 유지 등).
     """
+    if not (source.body and source.body.strip()):
+        return  # 빈 내용이면 AI 호출 불필요 (빈 메모 생성 직후 등)
+
     project = source.project
     needs_objective = not (project.objective and project.objective.strip())
 

@@ -130,10 +130,13 @@ class SourceUpdate(BaseModel):
 
 
 class NoteCreate(BaseModel):
-    """메모(md) 붙여넣기 → NOTE 소스. 제목은 비우면 AI가 생성."""
+    """메모(md) → NOTE 소스. 제목은 비우면 AI가 생성.
+
+    text는 빈 값 허용: '메모 작성'이 빈 메모를 먼저 만들고 상세에서 내용을 채운다.
+    """
 
     title: str | None = Field(default=None, max_length=300)
-    text: str = Field(min_length=1)
+    text: str = Field(default="", max_length=100_000)
 
 
 class DocumentCreate(BaseModel):

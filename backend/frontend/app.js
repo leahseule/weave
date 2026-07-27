@@ -323,6 +323,7 @@ async function renderAuth(view) {
 // --- Router ----------------------------------------------------------------
 let currentUser = null;  // 로그인한 사용자 (없으면 로그인 화면)
 let viewRole = null;     // 현재 보고 있는 프로젝트에서 내 권한 (owner/editor/viewer)
+let pendingEditNoteId = null;  // 방금 만든 빈 메모 → 상세 진입 시 자동 편집모드
 // null(캘린더 등 맥락 불명)은 허용 — 서버가 최종 판단
 const canEdit = () => viewRole === null || viewRole === "owner" || viewRole === "editor";
 const isOwner = () => viewRole === "owner";
@@ -1182,29 +1183,42 @@ function buildContentCard(s, isNote) {
   left.append(bodyWrap);
   renderContentView(bodyWrap, s.body);
 
-  let ta = null;
+  let ta = null, noteEd = null;
   const showView = () => {
     editBtn.hidden = false; cancelBtn.hidden = true; saveBtn.hidden = true;
+    ta = null; noteEd = null;
     renderContentView(bodyWrap, s.body);
   };
-  editBtn.addEventListener("click", () => {
+  const enterEdit = () => {
     editBtn.hidden = true; cancelBtn.hidden = false; saveBtn.hidden = false;
     bodyWrap.replaceChildren();
-    ta = el(`<textarea class="inline-edit"></textarea>`);
-    ta.value = s.body || "";
-    bodyWrap.append(ta);
-    const grow = () => { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
-    ta.addEventListener("input", grow);
-    grow();
-    ta.focus();
-  });
+    if (isNote) {
+      // 메모는 옵시디언식 라이브 마크다운 에디터로 편집
+      noteEd = mdLiveEditor(s.body || "", "메모를 입력하세요. 제목·요약·할 일은 AI가 정리해요.");
+      noteEd.element.classList.add("note-edit-editor");
+      bodyWrap.append(noteEd.element);
+      noteEd.focus();
+    } else {
+      ta = el(`<textarea class="inline-edit"></textarea>`);
+      ta.value = s.body || "";
+      bodyWrap.append(ta);
+      const grow = () => { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+      ta.addEventListener("input", grow);
+      grow();
+      ta.focus();
+    }
+  };
+  editBtn.addEventListener("click", enterEdit);
   cancelBtn.addEventListener("click", showView);
   saveBtn.addEventListener("click", async () => {
     saveBtn.disabled = true;
     saveBtn.innerHTML = `<span class="spinner"></span>`;
-    try { await api.updateSource(s.id, { body: ta.value }); toast("저장됨"); render(); }
+    const body = isNote ? (noteEd ? noteEd.getValue() : "") : (ta ? ta.value : "");
+    try { await api.updateSource(s.id, { body }); toast("저장됨"); render(); }
     catch (e) { toast(e.message); saveBtn.disabled = false; saveBtn.textContent = "저장"; }
   });
+  // 방금 만든 빈 메모로 진입한 경우 바로 편집 모드로
+  if (isNote && pendingEditNoteId === s.id) { pendingEditNoteId = null; enterEdit(); }
   return left;
 }
 
@@ -1608,39 +1622,22 @@ function renderDecision(projectId, c, editable = true) {
 // --- Add-source actions ----------------------------------------------------
 function renderAddBar(projectId) {
   const bar = el(`<div class="add-bar"></div>`);
-  const pasteBtn = el(`<button class="btn btn-secondary"><span class="material-symbols-outlined">content_paste</span>메모 붙여넣기</button>`);
+  const pasteBtn = el(`<button class="btn btn-secondary"><span class="material-symbols-outlined">edit_note</span>메모 작성</button>`);
   const audioBtn = el(`<button class="btn"><span class="material-symbols-outlined">mic</span>음성 업로드</button>`);
-  pasteBtn.addEventListener("click", () => openPasteModal(projectId));
+  pasteBtn.addEventListener("click", () => createAndOpenNote(projectId));
   audioBtn.addEventListener("click", () => openAudioModal(projectId));
   bar.append(pasteBtn, audioBtn);
   return bar;
 }
 
-function openPasteModal(projectId) {
-  const modal = el(`
-    <div>
-      <h3>메모 추가하기</h3>
-      <div class="field" id="pm-field"></div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="pm-cancel">취소</button>
-        <button class="btn btn-primary" id="pm-save">메모 추가</button>
-      </div>
-    </div>`);
-  const editor = mdLiveEditor("", "메모를 입력하세요. 제목·요약·할 일은 AI가 정리해요.");
-  editor.element.classList.add("paste-editor");
-  modal.querySelector("#pm-field").append(editor.element);
-  modal.querySelector("#pm-cancel").addEventListener("click", closeModal);
-  const saveBtn = modal.querySelector("#pm-save");
-  saveBtn.addEventListener("click", async () => {
-    const text = editor.getValue().trim();
-    if (!text) { toast("내용을 입력하세요"); return; }
-    saveBtn.innerHTML = `<span class="spinner"></span> 분석 중...`;
-    saveBtn.disabled = true;
-    try { await api.pasteNote(projectId, { text }); closeModal(); toast("메모 추가됨"); render(); }
-    catch (e) { toast(e.message); saveBtn.innerHTML = "메모 추가"; saveBtn.disabled = false; }
-  });
-  openModal(modal);
-  setTimeout(() => editor.focus(), 50);
+// 메모 추가: 모달 대신 빈 메모를 즉시 만들고 그 상세 페이지로 이동해 바로 작성.
+// 상세에서 내용을 저장하면(첫 저장) 서버가 AI로 제목·요약·할 일을 정리한다.
+async function createAndOpenNote(projectId) {
+  try {
+    const note = await api.pasteNote(projectId, { text: "" });
+    pendingEditNoteId = note.id;  // 상세 진입 시 자동 편집모드
+    location.hash = `#/projects/${projectId}/sources/${note.id}`;
+  } catch (e) { toast(e.message); }
 }
 
 function driveIcon(mime) {
@@ -1971,7 +1968,7 @@ document.querySelectorAll(".bn-item").forEach((btn) => {
 function historyMenuItems(pid) {
   return [
     { label: "회의 녹음", icon: "mic", onClick: () => { location.hash = `#/projects/${pid}/record`; } },
-    { label: "메모 추가하기", icon: "edit_note", onClick: () => openPasteModal(pid) },
+    { label: "메모 작성", icon: "edit_note", onClick: () => createAndOpenNote(pid) },
     { label: "옵시디언에서 검색", icon: "menu_book", onClick: () => openObsidianSearchModal(pid) },
   ];
 }
