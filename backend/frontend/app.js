@@ -1092,6 +1092,9 @@ function mdLiveEditor(initial = "", placeholder = "") {
     return (node && node.classList && node.classList.contains("mde-block")) ? node : null;
   };
   const curBlock = () => { const s = window.getSelection(); return s.rangeCount ? blockOf(s.getRangeAt(0).startContainer) : null; };
+  // 빈 블록은 caret 좌표가 (0,0)으로 잡혀 입력할 때 브라우저가 문서 맨 위로 스크롤해버림.
+  // caret 대신 블록 요소(정상 좌표)를 최소한만 보이게 해서 스크롤 튐을 막는다.
+  const keepInView = () => { const b = curBlock(); if (b && b.scrollIntoView) b.scrollIntoView({ block: "nearest" }); };
 
   const renderBlock = (block) => {
     const md = block.textContent;
@@ -1117,6 +1120,8 @@ function mdLiveEditor(initial = "", placeholder = "") {
       done.after(nb);
       caretTo(nb);
       syncEmpty();
+      keepInView();
+      requestAnimationFrame(keepInView);  // 브라우저 기본 스크롤(맨 위로 튐) 이후 한 번 더 교정
     }
   });
   // 렌더된 줄을 클릭하면 원본(raw)으로 열어 편집
@@ -1124,7 +1129,7 @@ function mdLiveEditor(initial = "", placeholder = "") {
     const rb = e.target.closest ? e.target.closest(".mde-rendered") : null;
     if (rb && root.contains(rb)) { e.preventDefault(); caretTo(editBlock(rb)); }
   });
-  root.addEventListener("input", syncEmpty);
+  root.addEventListener("input", () => { syncEmpty(); keepInView(); });
   root.addEventListener("paste", (e) => {
     e.preventDefault();
     const t = ((e.clipboardData || window.clipboardData).getData("text") || "").replace(/\r\n/g, "\n");
