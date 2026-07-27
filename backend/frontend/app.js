@@ -1077,7 +1077,9 @@ function mdLiveEditor(initial = "", placeholder = "") {
   root.dataset.ph = placeholder;
 
   const rawBlock = (text = "") => { const b = el(`<div class="mde-block mde-raw"><br></div>`); if (text) b.textContent = text; return b; };
-  const renderedBlock = (md) => { const b = el(`<div class="mde-block mde-rendered"></div>`); b.dataset.md = md; b.innerHTML = mdToHtml(md) || "<br>"; return b; };
+  // 렌더된 줄은 contenteditable=false — 키보드로 직접 수정하면 원본(data-md)과
+  // 어긋나 저장 시 내용이 유실되므로, 편집은 클릭(→raw 변환)으로만 하도록 잠근다.
+  const renderedBlock = (md) => { const b = el(`<div class="mde-block mde-rendered" contenteditable="false"></div>`); b.dataset.md = md; b.innerHTML = mdToHtml(md) || "<br>"; return b; };
 
   const caretTo = (block, atStart = false) => {
     const r = document.createRange();
