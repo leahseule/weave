@@ -52,6 +52,12 @@ body.detail-view { background: #ffffff; }
 body.detail-view .topbar { background: #ffffff; }
 body.detail-view .card { border-color: transparent; }
 
+html {
+  /* 하단 고정 네비게이션 바(66px)에 마지막 줄이 가려지지 않도록
+     scrollIntoView·커서 스크롤이 바 높이만큼 여유를 두게 함 */
+  scroll-padding-bottom: 84px;
+}
+
 body {
   margin: 0;
   font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
