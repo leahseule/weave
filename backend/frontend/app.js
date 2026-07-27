@@ -1409,10 +1409,12 @@ async function renderSourceDetail(view, pid, sid) {
 
   const originLabel = s.origin === "audio" ? "🎙 음성" : s.origin === "pasted" ? "📝 메모" : "";
   const titleRow = el(`<div class="detail-title-row"></div>`);
-  const titleEl = el(`<h1 class="page-title ${canEdit() ? "longpress" : ""}" style="margin:0;flex:1" ${canEdit() ? 'title="꾹 눌러 제목 편집"' : ""}>${esc(s.title)}</h1>`);
-  if (canEdit()) attachLongPress(titleEl, () => [
-    { label: "제목 수정", icon: "edit", onClick: () => editText("제목", s.title, (v) => api.updateSource(s.id, { title: v })) },
-  ]);
+  const titleEl = el(`<h1 class="page-title ${canEdit() ? "longpress" : ""}" style="margin:0;flex:1" ${canEdit() ? 'title="꾹 누르거나 더블클릭해 제목 편집"' : ""}>${esc(s.title)}</h1>`);
+  if (canEdit()) {
+    const editTitle = () => editText("제목", s.title, (v) => api.updateSource(s.id, { title: v }));
+    attachLongPress(titleEl, () => [{ label: "제목 수정", icon: "edit", onClick: editTitle }]);
+    titleEl.addEventListener("dblclick", editTitle);
+  }
   titleRow.append(titleEl);
   if (canEdit()) {
     const delBtn = el(`<button class="icon-btn detail-delete" title="삭제"><span class="material-symbols-outlined">delete</span></button>`);
