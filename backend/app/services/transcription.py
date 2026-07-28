@@ -61,6 +61,35 @@ def _transcribe_bytes(filename: str, content: bytes, offset: int = 0) -> list[st
     return lines
 
 
+def _normalize(content: bytes, filename: str) -> bytes | None:
+    """브라우저 녹음(webm 등)을 ffmpeg로 mono 16kHz mp3로 재인코딩해 반환.
+
+    MediaRecorder webm은 duration 헤더가 없고(또는 일시정지/재개로 타임스탬프가
+    끊겨) Whisper가 중간에 전사를 멈추는 문제가 있다. ffmpeg는 실제 EOF까지
+    디코드하므로 정상 duration의 mp3를 만들어 전체가 전사되게 한다.
+    ffmpeg가 없거나 실패하면 None → 원본으로 폴백.
+    """
+    tmpdir = tempfile.mkdtemp(prefix="weave_norm_")
+    ext = os.path.splitext(filename or "")[1] or ".webm"
+    src = os.path.join(tmpdir, "src" + ext)
+    out = os.path.join(tmpdir, "norm.mp3")
+    try:
+        with open(src, "wb") as f:
+            f.write(content)
+        cmd = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-i", src, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k", out,
+        ]
+        subprocess.run(cmd, check=True, timeout=900)
+        with open(out, "rb") as f:
+            data = f.read()
+        return data or None
+    except Exception:  # noqa: BLE001 — ffmpeg 없음/실패 시 원본으로 폴백
+        return None
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
 def _split_to_chunks(content: bytes, filename: str):
     """ffmpeg로 오디오를 10분 mp3(모노 16kHz 64k) 조각으로 분할. (tmpdir, [경로]) 반환."""
     tmpdir = tempfile.mkdtemp(prefix="weave_audio_")
@@ -99,6 +128,13 @@ def transcribe(filename: str, content: bytes) -> str:
         )
     if len(content) > UPLOAD_LIMIT:
         raise TranscriptionError("파일이 너무 큽니다 (최대 300MB).")
+
+    # 브라우저 webm은 duration 헤더가 없어 Whisper가 중간에 잘리므로 mp3로 정규화.
+    # (ffmpeg 없으면 None → 원본 그대로 전사)
+    normalized = _normalize(content, filename)
+    if normalized is not None:
+        content = normalized
+        filename = "audio.mp3"
 
     try:
         if len(content) <= DIRECT_LIMIT:
