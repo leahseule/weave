@@ -62,6 +62,7 @@ const api = {
   calendar: () => api._json("GET", "/calendar"),
   updateSource: (id, data) => api._json("PATCH", `/sources/${id}`, data),
   deleteSource: (id) => api._json("DELETE", `/sources/${id}`),
+  retranscribe: (id) => api._json("POST", `/sources/${id}/retranscribe`),
   driveStatus: () => api._json("GET", "/drive/status"),
   driveDisconnect: () => api._json("DELETE", "/drive/disconnect"),
   driveSearch: (q) => api._json("GET", `/drive/search?q=${encodeURIComponent(q)}`),
@@ -710,7 +711,8 @@ async function renderRecord(view, pid) {
     const title = `회의 녹음 ${new Date().toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`;
     try {
       const src = await api.audioMeeting(pid, file, title, attendees, noteText);
-      toast("회의 추가됨");
+      // 전사가 비어도(실패) 오디오는 서버에 보관됨 → 상세에서 '다시 전사' 가능
+      toast(src.body && src.body.trim() ? "회의 추가됨" : "녹음을 저장했어요 — 상세에서 다시 전사할 수 있어요");
       location.hash = `#/projects/${pid}/sources/${src.id}`;
     } catch (e) {
       // 전사 실패 시 녹음 유실 방지: 오디오 파일을 자동으로 내려받아 보관
@@ -1407,6 +1409,31 @@ function openAttendeesModal(s) {
   openModal(modal);
 }
 
+// 녹음 원본 오디오: 재생·다운로드 + 다시 전사 (전사 실패/중단 복구)
+function buildAudioCard(s) {
+  const href = "/files/" + encodeURI(s.audio_key);
+  const hasTranscript = !!(s.body && s.body.trim());
+  const relabel = hasTranscript ? "다시 전사" : "전사하기";
+  const card = el(`<section class="card audio-card"></section>`);
+  const head = el(`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px"></div>`);
+  head.append(el(`<h2 class="section-title" style="margin:0"><span class="material-symbols-outlined">graphic_eq</span>녹음 원본</h2>`));
+  if (canEdit()) {
+    const reBtn = el(`<button class="btn btn-sm"><span class="material-symbols-outlined">restart_alt</span>${relabel}</button>`);
+    reBtn.addEventListener("click", async () => {
+      reBtn.disabled = true;
+      reBtn.innerHTML = `<span class="spinner"></span> 전사 중...`;
+      try { await api.retranscribe(s.id); toast("전사 완료"); render(); }
+      catch (e) { toast(e.message); reBtn.disabled = false; reBtn.innerHTML = `<span class="material-symbols-outlined">restart_alt</span>${relabel}`; }
+    });
+    head.append(reBtn);
+  }
+  card.append(head);
+  card.append(el(`<audio controls preload="none" style="width:100%" src="${href}"></audio>`));
+  card.append(el(`<a class="audio-dl" href="${href}" download><span class="material-symbols-outlined">download</span>오디오 내려받기</a>`));
+  if (!hasTranscript) card.append(el(`<p class="hint" style="margin-top:8px">전사된 내용이 없어요. 위 <b>${relabel}</b>로 다시 시도할 수 있어요.</p>`));
+  return card;
+}
+
 // --- Meeting detail (전사 상세) --------------------------------------------
 async function renderSourceDetail(view, pid, sid) {
   const p = await api.getProject(pid);
@@ -1472,6 +1499,7 @@ async function renderSourceDetail(view, pid, sid) {
   // 좌: [내 메모(회의만)] → [음성 기록/메모 내용] 세로로 쌓기
   const leftCol = el(`<div class="content-col"></div>`);
   if (!isNote) leftCol.append(buildNoteCard(s));
+  if (!isNote && s.audio_key) leftCol.append(buildAudioCard(s));
   leftCol.append(buildContentCard(s, isNote));
   grid.append(leftCol);
 

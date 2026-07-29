@@ -120,6 +120,8 @@ class Source(Base):
     origin: Mapped[MeetingOrigin | None] = mapped_column(
         Enum(MeetingOrigin, name="meeting_origin")
     )
+    # 녹음 원본 오디오의 S3 키. 전사가 실패/중단돼도 원본을 보존해 재전사할 수 있게 함.
+    audio_key: Mapped[str | None] = mapped_column(String(512))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

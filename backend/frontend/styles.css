@@ -526,6 +526,10 @@ main { max-width: 1200px; margin: 0 auto; padding: 44px 40px 110px; }
 .mde .mde-rendered hr.md-hr { margin: 10px 0; }  /* 에디터에서 가로줄 보이게 */
 .mde.mde-empty::before { content: attr(data-ph); color: var(--on-surface-variant); pointer-events: none; position: absolute; top: 0; left: 0; }
 .record-note-editor { min-height: 380px; }
+.audio-card audio { margin-top: 4px; }
+.audio-dl { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; font-size: 13px; font-weight: 500; color: var(--secondary); text-decoration: none; }
+.audio-dl:hover { text-decoration: underline; }
+.audio-dl .material-symbols-outlined { font-size: 18px; }
 .paste-editor { min-height: 400px; }
 .note-edit-editor { min-height: 200px; }
 

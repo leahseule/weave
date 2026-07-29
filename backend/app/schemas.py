@@ -175,6 +175,7 @@ class SourceOut(ORMModel):
     keywords: list[str] | None = None
     attendees: list[str] | None = None
     origin: MeetingOrigin | None
+    audio_key: str | None = None  # 녹음 원본 오디오(S3) — 있으면 재생·재전사 가능
     created_at: datetime
     action_items: list[ActionItemOut] = []
     references: list[MeetingReferenceOut] = []

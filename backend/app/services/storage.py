@@ -68,3 +68,21 @@ def presign_get(key: str) -> str:
         Params={"Bucket": settings.s3_bucket, "Key": key},
         ExpiresIn=_GET_EXPIRE,
     )
+
+
+def put_bytes(content: bytes, filename: str, content_type: str, prefix: str = "uploads") -> str:
+    """서버에서 직접 S3에 업로드하고 저장 키를 반환 (녹음 오디오 보관용)."""
+    key = f"{prefix}/{uuid.uuid4().hex}/{_safe_name(filename)}"
+    _client().put_object(
+        Bucket=settings.s3_bucket,
+        Key=key,
+        Body=content,
+        ContentType=content_type or "application/octet-stream",
+    )
+    return key
+
+
+def get_bytes(key: str) -> bytes:
+    """S3 객체의 바이트를 읽어온다 (재전사용)."""
+    obj = _client().get_object(Bucket=settings.s3_bucket, Key=key)
+    return obj["Body"].read()

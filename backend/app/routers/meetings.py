@@ -9,7 +9,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.auth import access_project, get_current_user
+from app.auth import access_project, access_source, get_current_user
 from app.db import get_db
 from app.models import (
     ActionItem,
@@ -27,6 +27,7 @@ from pathlib import Path
 from app.schemas import DocumentCreate, NoteCreate, ObsidianNoteCreate, SourceOut
 from app.services import link_title
 from app.services import obsidian as obs_svc
+from app.services import storage
 from app.services.extraction import extract_meeting
 from app.services.transcription import TranscriptionError, transcribe
 
@@ -128,6 +129,7 @@ def _save_source(
     ai_title: bool = True,
     attendees: list[str] | None = None,
     note: str | None = None,
+    audio_key: str | None = None,
 ) -> Source:
     source = Source(
         project_id=project_id,
@@ -137,6 +139,7 @@ def _save_source(
         body=body,
         attendees=attendees or None,
         note=(note or None),
+        audio_key=audio_key,
     )
     db.add(source)
     db.commit()
@@ -247,20 +250,76 @@ def create_meeting_from_audio(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """녹음/음성파일 업로드 → Whisper 전사 → MEETING. attendees는 콤마 구분, note는 녹음 중 메모."""
+    """녹음/음성파일 업로드 → Whisper 전사 → MEETING. attendees는 콤마 구분, note는 녹음 중 메모.
+
+    오디오 원본을 먼저 S3에 보관하므로, 전사가 실패하거나 중단돼도 회의는 생성되고
+    나중에 '다시 전사'로 복구할 수 있다. S3 미설정이면 종전처럼 전사 실패 시 400.
+    """
     access_project(db, project_id, user, ProjectRole.EDITOR)
 
     content = file.file.read()
+
+    # 1) 오디오 원본을 S3에 먼저 보관 (전사 실패/중단에도 원본 보존)
+    audio_key = None
+    if storage.is_configured():
+        try:
+            audio_key = storage.put_bytes(
+                content,
+                file.filename or "recording.webm",
+                file.content_type or "audio/webm",
+                prefix="recordings",
+            )
+        except Exception:  # noqa: BLE001 — 보관 실패해도 전사는 시도
+            audio_key = None
+
+    # 2) 전사 시도
+    transcript = None
+    transcribe_error = None
     try:
         transcript = transcribe(file.filename or "audio", content)
     except TranscriptionError as exc:
+        transcribe_error = str(exc)
+
+    # 3) 전사 실패 + 오디오도 못 지켰으면 종전처럼 400 (클라이언트가 로컬 저장)
+    if transcript is None and not audio_key:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=transcribe_error or "전사에 실패했어요.",
+        )
 
     names = [n.strip() for n in (attendees or "").split(",") if n.strip()]
     meeting_title = title or f"회의 녹음 ({file.filename})"
+    # 전사 실패면 빈 본문으로 생성 (오디오 보존 → 재전사 가능), AI 정리는 성공 시에만
     return _save_source(
-        db, project_id, SourceType.MEETING, meeting_title, transcript,
+        db, project_id, SourceType.MEETING, meeting_title, transcript or "",
         MeetingOrigin.AUDIO, attendees=names, note=(note or "").strip() or None,
+        audio_key=audio_key, enrich=bool(transcript),
     )
+
+
+@router.post("/sources/{source_id}/retranscribe", response_model=SourceOut)
+def retranscribe_source(
+    source_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """보관된 오디오로 회의를 다시 전사한다 (전사 실패/중단 복구용)."""
+    source = access_source(db, source_id, user, ProjectRole.EDITOR)
+    if not source.audio_key:
+        raise HTTPException(status_code=400, detail="이 회의엔 보관된 오디오가 없어요.")
+    if not storage.is_configured():
+        raise HTTPException(status_code=400, detail="저장소(S3)가 설정되지 않았어요.")
+    try:
+        content = storage.get_bytes(source.audio_key)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="보관된 오디오를 불러오지 못했어요.") from exc
+    try:
+        transcript = transcribe(source.audio_key.rsplit("/", 1)[-1], content)
+    except TranscriptionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    source.body = transcript
+    db.commit()
+    _enrich_source(db, source)  # 다시 요약·할 일·제목 정리
+    db.refresh(source)
+    return source
