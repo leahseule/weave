@@ -15,8 +15,7 @@
 ![AWS](https://img.shields.io/badge/AWS-EC2_S3-FF9900?logo=amazonaws&logoColor=white)
 ![OpenAI](https://img.shields.io/badge/OpenAI-Whisper_GPT--4o-412991?logo=openai&logoColor=white)
 
-<!-- 🔗 배포했다면 아래 한 줄의 주석을 풀고 URL을 넣으세요 -->
-<!-- **[▶ 라이브 데모](https://your-domain.duckdns.org)** · **[GitHub](https://github.com/leahseule/weave)** -->
+### **[▶ 라이브 데모](https://weaveapp.duckdns.org)** · **[GitHub](https://github.com/leahseule/weave)**
 
 </div>
 
