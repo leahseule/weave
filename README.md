@@ -2,7 +2,7 @@
 
 <img src="docs/banner.svg" alt="Weave — AI meeting workspace" width="100%">
 
-<br><br>
+<br>
 
 ### 🧶 회의를 녹음하면 AI가 **요약 · 할 일 · 결정**을 정리하고, 프로젝트 히스토리로 엮어주는 협업 워크스페이스
 
