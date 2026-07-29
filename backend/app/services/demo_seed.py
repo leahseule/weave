@@ -64,7 +64,23 @@ def reseed(db: Session, user: User) -> None:
 
     today = date.today()
 
-    # ── 프로젝트 1: 신제품 앱 런칭 TF ───────────────────────────────
+    # ── 주간 팀 싱크 (먼저 시드 → 활동이 더 오래돼 목록 뒤쪽) ──────────
+    p2 = _project(db, user, "주간 팀 싱크", "매주 팀 진행 상황과 리스크를 공유한다.")
+    w = _meeting(
+        db, p2, title="8월 2주차 위클리",
+        attendees=["팀 전체"],
+        keywords=["진행상황", "리스크"],
+        summary="대부분 일정대로 진행 중. 디자인 QA 리소스 부족이 유일한 리스크로 공유됨.",
+        body=(
+            "[00:00] 진행상황: 개발 70%, 디자인 80% 완료.\n"
+            "[00:22] 리스크: 디자인 QA 인력이 부족해 다음 주 지원 요청.\n"
+            "[00:40] 다음 주 목표: 베타 빌드 배포."
+        ),
+    )
+    db.add(ActionItem(source_id=w.id, content="디자인 QA 지원 인력 요청", due_date=today + timedelta(days=2)))
+    db.commit()
+
+    # ── 신제품 앱 런칭 TF (마지막 시드 → 가장 최근 활동 → 목록 맨 앞) ──
     p = _project(
         db, user, "신제품 앱 런칭 TF",
         "3분기 내 신규 모바일 앱을 출시하고 초기 사용자 1만 명을 확보한다.",
@@ -143,20 +159,5 @@ def reseed(db: Session, user: User) -> None:
         body="https://docs.google.com/document/d/EXAMPLE_LAUNCH_CHECKLIST/edit",
         note="출시 전 QA·스토어 심사·공지 항목 정리",
     ))
-
-    # ── 프로젝트 2: 주간 팀 싱크 ───────────────────────────────────
-    p2 = _project(db, user, "주간 팀 싱크", "매주 팀 진행 상황과 리스크를 공유한다.")
-    w = _meeting(
-        db, p2, title="8월 2주차 위클리",
-        attendees=["팀 전체"],
-        keywords=["진행상황", "리스크"],
-        summary="대부분 일정대로 진행 중. 디자인 QA 리소스 부족이 유일한 리스크로 공유됨.",
-        body=(
-            "[00:00] 진행상황: 개발 70%, 디자인 80% 완료.\n"
-            "[00:22] 리스크: 디자인 QA 인력이 부족해 다음 주 지원 요청.\n"
-            "[00:40] 다음 주 목표: 베타 빌드 배포."
-        ),
-    )
-    db.add(ActionItem(source_id=w.id, content="디자인 QA 지원 인력 요청", due_date=today + timedelta(days=2)))
 
     db.commit()
