@@ -9,7 +9,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.auth import access_project, access_source, get_current_user
+from app.auth import access_project, access_source, block_demo, get_current_user
 from app.db import get_db
 from app.models import (
     ActionItem,
@@ -166,7 +166,8 @@ def create_note(
         payload.text.strip().splitlines()[0][:40] if payload.text.strip() else "메모"
     )
     return _save_source(
-        db, project_id, SourceType.NOTE, fallback, payload.text, MeetingOrigin.PASTED
+        db, project_id, SourceType.NOTE, fallback, payload.text, MeetingOrigin.PASTED,
+        enrich=not user.is_demo,  # 데모는 AI 정리(GPT 비용) 생략
     )
 
 
@@ -255,6 +256,7 @@ def create_meeting_from_audio(
     오디오 원본을 먼저 S3에 보관하므로, 전사가 실패하거나 중단돼도 회의는 생성되고
     나중에 '다시 전사'로 복구할 수 있다. S3 미설정이면 종전처럼 전사 실패 시 400.
     """
+    block_demo(user, "녹음 전사")
     access_project(db, project_id, user, ProjectRole.EDITOR)
 
     content = file.file.read()
@@ -304,6 +306,7 @@ def retranscribe_source(
     user: User = Depends(get_current_user),
 ):
     """보관된 오디오로 회의를 다시 전사한다 (전사 실패/중단 복구용)."""
+    block_demo(user, "다시 전사")
     source = access_source(db, source_id, user, ProjectRole.EDITOR)
     if not source.audio_key:
         raise HTTPException(status_code=400, detail="이 회의엔 보관된 오디오가 없어요.")

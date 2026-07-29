@@ -22,6 +22,7 @@ class Credentials(BaseModel):
 class UserOut(ORMModel):
     id: int
     email: str
+    is_demo: bool = False
 
 
 # --- Project ---------------------------------------------------------------

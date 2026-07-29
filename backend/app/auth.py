@@ -28,6 +28,15 @@ def verify_password(pw: str, hashed: str) -> bool:
         return False
 
 
+def block_demo(user: User, what: str = "이 기능") -> None:
+    """체험(데모) 계정은 비용이 드는 기능(전사 등)을 쓸 수 없게 막는다."""
+    if getattr(user, "is_demo", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"체험 모드에서는 {what}을(를) 쓸 수 없어요. 샘플 결과로 동작을 확인해보세요!",
+        )
+
+
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     """세션 쿠키의 user_id로 현재 사용자를 로드. 없으면 401."""
     uid = request.session.get("user_id")

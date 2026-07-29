@@ -81,7 +81,11 @@ def update_source(
         # 빈 메모로 만든 뒤 첫 내용을 저장하는 경우 → AI로 제목·요약·할 일 정리.
         # 이미 요약이 있는(=한번 정리된) 메모는 사용자가 다듬었을 수 있어 덮어쓰지 않음.
         body_now = (data["body"] or "").strip()
-        if source.type == SourceType.NOTE and body_now and not (source.summary or "").strip():
+        if (
+            source.type == SourceType.NOTE and body_now
+            and not (source.summary or "").strip()
+            and not user.is_demo  # 데모는 AI 정리(GPT 비용) 생략
+        ):
             enrich_note = True
     if "note" in data:
         source.note = data["note"]

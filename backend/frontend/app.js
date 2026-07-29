@@ -28,6 +28,7 @@ const api = {
   register: (email, password) => api._json("POST", "/auth/register", { email, password }),
   login: (email, password) => api._json("POST", "/auth/login", { email, password }),
   logout: () => api._json("POST", "/auth/logout"),
+  demoLogin: () => api._json("POST", "/auth/demo"),
   listProjects: (active) => api._json("GET", active === undefined ? "/projects" : `/projects?active=${active}`),
   getProject: (id) => api._json("GET", `/projects/${id}`),
   createProject: (data) => api._json("POST", "/projects", data),
@@ -299,6 +300,26 @@ async function renderAuth(view) {
     });
     card.append(form);
 
+    // 가입 없이 체험 (샘플 데이터로 앱 둘러보기)
+    card.append(el(`<div class="auth-or"><span>또는</span></div>`));
+    const demoBtn = el(`<button type="button" class="auth-demo"><span class="material-symbols-outlined">bolt</span> 가입 없이 체험하기</button>`);
+    demoBtn.addEventListener("click", async () => {
+      demoBtn.disabled = true;
+      demoBtn.innerHTML = `<span class="spinner"></span> 체험 준비 중…`;
+      try {
+        currentUser = await api.demoLogin();
+        document.body.classList.remove("auth-view");
+        location.hash = "#/";
+        render();
+      } catch (ex) {
+        toast(ex.message);
+        demoBtn.disabled = false;
+        demoBtn.innerHTML = `<span class="material-symbols-outlined">bolt</span> 가입 없이 체험하기`;
+      }
+    });
+    card.append(demoBtn);
+    card.append(el(`<p class="auth-demo-hint">샘플 데이터로 가입 없이 바로 둘러볼 수 있어요</p>`));
+
     const toggle = el(`<div class="auth-toggle">${isLogin ? "계정이 없으신가요? " : "이미 계정이 있으신가요? "}<a>${isLogin ? "회원가입" : "로그인"}</a></div>`);
     toggle.querySelector("a").addEventListener("click", () => { mode = isLogin ? "register" : "login"; paint(); });
     card.append(toggle);
@@ -315,6 +336,21 @@ let pendingEditNoteId = null;  // 방금 만든 빈 메모 → 상세 진입 시
 const canEdit = () => viewRole === null || viewRole === "owner" || viewRole === "editor";
 const isOwner = () => viewRole === "owner";
 
+// 체험(데모) 계정이면 상단바에 '체험 모드' 뱃지 표시
+function updateDemoBadge() {
+  const bar = document.querySelector(".topbar");
+  if (!bar) return;
+  let badge = document.getElementById("demo-badge");
+  if (currentUser && currentUser.is_demo) {
+    if (!badge) {
+      badge = el(`<span id="demo-badge" class="demo-badge" title="샘플 데이터로 둘러보는 중이에요. 편집해도 다시 접속하면 초기화돼요."><span class="material-symbols-outlined">visibility</span>체험 모드</span>`);
+      bar.insertBefore(badge, bar.querySelector(".spacer"));
+    }
+  } else if (badge) {
+    badge.remove();
+  }
+}
+
 async function render() {
   const view = document.getElementById("view");
   const crumbs = document.getElementById("crumbs");
@@ -328,6 +364,7 @@ async function render() {
     catch { document.body.classList.add("auth-view"); renderAuth(view); return; }
   }
   document.body.classList.remove("auth-view");
+  updateDemoBadge();
   const scrollY = window.scrollY;
   const sameRoute = hash === lastHash;  // 액션 후 재렌더 vs 실제 페이지 이동
   lastHash = hash;
@@ -1980,8 +2017,13 @@ document.querySelectorAll(".bn-item").forEach((btn) => {
 
 // 히스토리(회의·메모) 추가 항목 — Project History 하단 버튼 & FAB 공용
 function historyMenuItems(pid) {
+  const demo = currentUser && currentUser.is_demo;
   return [
-    { label: "회의 녹음", icon: "mic", onClick: () => { location.hash = `#/projects/${pid}/record`; } },
+    { label: "회의 녹음", icon: "mic", onClick: () => {
+        // 체험 모드는 전사(비용)가 잠겨 있어 안내만 (샘플 회의로 결과 확인)
+        if (demo) { toast("체험 모드에서는 녹음이 잠겨 있어요 — 샘플 회의의 전사·요약을 확인해보세요"); return; }
+        location.hash = `#/projects/${pid}/record`;
+      } },
     { label: "메모 작성", icon: "edit_note", onClick: () => createAndOpenNote(pid) },
     { label: "옵시디언에서 검색", icon: "menu_book", onClick: () => openObsidianSearchModal(pid) },
   ];

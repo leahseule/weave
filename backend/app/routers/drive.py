@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user
+from app.auth import block_demo, get_current_user
 from app.db import get_db
 from app.models import ContextItem, ContextKind, User
 from app.services import drive as drive_svc
@@ -59,6 +59,7 @@ def status(db: Session = Depends(get_db), user: User = Depends(get_current_user)
 @router.get("/connect")
 def connect(user: User = Depends(get_current_user)):
     """Google 동의 화면으로 리다이렉트."""
+    block_demo(user, "Google Drive 연결")
     try:
         return RedirectResponse(drive_svc.auth_url())
     except drive_svc.DriveError:

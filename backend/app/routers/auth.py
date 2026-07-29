@@ -8,7 +8,7 @@ from app.auth import get_current_user, hash_password, verify_password
 from app.db import get_db
 from app.models import Project, ProjectMember, ProjectRole, User
 from app.schemas import Credentials, UserOut
-from app.services import oauth_login
+from app.services import demo_seed, oauth_login
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("weave.auth")
@@ -89,6 +89,15 @@ def google_callback(
 
     request.session["user_id"] = user.id
     return RedirectResponse("/")
+
+
+@router.post("/demo", response_model=UserOut)
+def demo_login(request: Request, db: Session = Depends(get_db)):
+    """가입 없이 체험: 데모 계정을 샘플 데이터로 초기화한 뒤 로그인."""
+    user = demo_seed.get_or_create_demo_user(db)
+    demo_seed.reseed(db, user)
+    request.session["user_id"] = user.id
+    return user
 
 
 @router.post("/login", response_model=UserOut)
