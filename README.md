@@ -19,7 +19,7 @@
 
 <br>
 
-**[&nbsp; ▶ 라이브 데모 &nbsp;](https://weaveapp.duckdns.org)** &nbsp;·&nbsp; **[&nbsp; GitHub &nbsp;](https://github.com/leahseule/weave)**
+**[&nbsp; ▶ 라이브 데모 &nbsp;](https://weaveapp.duckdns.org)** &nbsp;
 
 </div>
 
