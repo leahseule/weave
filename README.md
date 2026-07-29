@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/banner.svg" alt="Weave — AI meeting workspace" width="100%">
+<a href="https://weaveapp.duckdns.org"><img src="docs/banner.svg" alt="Weave — 클릭하면 바로 써볼 수 있어요" width="100%"></a>
 
 <br>
 
@@ -19,7 +19,9 @@
 
 <br>
 
-**[&nbsp; ▶ 라이브 데모 &nbsp;](https://weaveapp.duckdns.org)**
+### **[🚀 지금 바로 써보기](https://weaveapp.duckdns.org)**
+
+<sub>👆 위 배너를 눌러도 앱으로 바로 들어갈 수 있어요</sub>
 
 </div>
 

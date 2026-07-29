@@ -2,14 +2,6 @@
   <!-- 앱 디자인 토큰: 화이트 카드 · #ececec 보더 · 틸(#006b5f) 단일 액센트 · 플랫 -->
   <rect x="2" y="2" width="1196" height="276" rx="26" fill="#ffffff" stroke="#ececec" stroke-width="2.5"/>
 
-  <!-- 브랜드 마크 워터마크 (은은하게, 오른쪽 균형) -->
-  <g transform="translate(1002,140) scale(3.7) translate(-116,-136)" fill="none" stroke="#006b5f" stroke-width="1.4" stroke-linejoin="round" opacity="0.07">
-    <rect x="104" y="108" width="24" height="15" rx="4"/>
-    <rect x="80" y="150" width="24" height="15" rx="4"/>
-    <rect x="128" y="150" width="24" height="15" rx="4"/>
-    <path d="M116 123 V137 M92 137 H140 M92 137 V150 M140 137 V150" stroke-linecap="round"/>
-  </g>
-
   <!-- 아이콘 칩 (앱의 secondary-container 배경) -->
   <rect x="60" y="84" width="112" height="112" rx="28" fill="#e8f3f0"/>
 
@@ -29,4 +21,10 @@
 
   <!-- 틸 언더라인 액센트 -->
   <rect x="210" y="188" width="88" height="5" rx="2.5" fill="#006b5f"/>
+
+  <!-- CTA 필: 클릭하면 앱으로 — 앱의 틸 버튼 스타일 -->
+  <g>
+    <rect x="852" y="116" width="288" height="48" rx="24" fill="#006b5f"/>
+    <text x="996" y="146" text-anchor="middle" font-family="'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="19" font-weight="600" fill="#ffffff">지금 바로 써보기  ↗</text>
+  </g>
 </svg>
