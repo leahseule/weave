@@ -1,21 +1,25 @@
 <div align="center">
 
-# 🧶 Weave
+<img src="docs/banner.svg" alt="Weave — AI meeting workspace" width="100%">
 
-**회의를 녹음하면 AI가 요약·할 일·결정을 정리하고, 프로젝트 히스토리로 엮어주는 협업 워크스페이스**
+<br><br>
 
-녹음 · 전사 · 요약 · 액션아이템 · 결정 큐레이션 · 문서 연결까지 — 흩어진 회의를 프로젝트 하나로 꿰맵니다.
+### 🧶 회의를 녹음하면 AI가 **요약 · 할 일 · 결정**을 정리하고, 프로젝트 히스토리로 엮어주는 협업 워크스페이스
+
+흩어진 녹음 · 메모 · 문서를 프로젝트 하나로 꿰맵니다.
 
 <br>
 
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-EC2_S3-FF9900?logo=amazonaws&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-Whisper_GPT--4o-412991?logo=openai&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-compose-2496ED?style=flat-square&logo=docker&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-EC2_S3-FF9900?style=flat-square&logo=amazonaws&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-Whisper_GPT--4o-412991?style=flat-square&logo=openai&logoColor=white)
 
-### **[▶ 라이브 데모](https://weaveapp.duckdns.org)** · **[GitHub](https://github.com/leahseule/weave)**
+<br>
+
+**[&nbsp; ▶ 라이브 데모 &nbsp;](https://weaveapp.duckdns.org)** &nbsp;·&nbsp; **[&nbsp; GitHub &nbsp;](https://github.com/leahseule/weave)**
 
 </div>
 
