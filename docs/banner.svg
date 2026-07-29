@@ -1,46 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" width="1200" height="340" role="img" aria-label="Weave — AI meeting workspace">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0f766e"/>
-      <stop offset="0.55" stop-color="#0b5b60"/>
-      <stop offset="1" stop-color="#0c4a6e"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#5eead4"/>
-      <stop offset="1" stop-color="#2dd4bf"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.75" cy="0.2" r="0.8">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" width="1200" height="280" role="img" aria-label="Weave — AI meeting workspace">
+  <!-- 앱 디자인 토큰: 화이트 카드 · #ececec 보더 · 틸(#006b5f) 단일 액센트 · 플랫 -->
+  <rect x="2" y="2" width="1196" height="276" rx="26" fill="#ffffff" stroke="#ececec" stroke-width="2.5"/>
 
-  <!-- background -->
-  <rect x="0" y="0" width="1200" height="340" rx="26" fill="url(#bg)"/>
-  <rect x="0" y="0" width="1200" height="340" rx="26" fill="url(#glow)"/>
-
-  <!-- woven thread motif (right side) -->
-  <g stroke="#5eead4" stroke-width="2" opacity="0.16">
-    <path d="M760 -40 L1260 460"/>
-    <path d="M820 -40 L1320 460"/>
-    <path d="M880 -40 L1380 460"/>
-    <path d="M940 -40 L1440 460"/>
-    <path d="M1240 -40 L740 460"/>
-    <path d="M1300 -40 L800 460"/>
-    <path d="M1360 -40 L860 460"/>
+  <!-- 브랜드 마크 워터마크 (은은하게, 오른쪽 균형) -->
+  <g transform="translate(1002,140) scale(3.7) translate(-116,-136)" fill="none" stroke="#006b5f" stroke-width="1.4" stroke-linejoin="round" opacity="0.07">
+    <rect x="104" y="108" width="24" height="15" rx="4"/>
+    <rect x="80" y="150" width="24" height="15" rx="4"/>
+    <rect x="128" y="150" width="24" height="15" rx="4"/>
+    <path d="M116 123 V137 M92 137 H140 M92 137 V150 M140 137 V150" stroke-linecap="round"/>
   </g>
 
-  <!-- yarn knot glyph -->
-  <g transform="translate(112,168)">
-    <circle r="40" fill="none" stroke="url(#accent)" stroke-width="7"/>
-    <path d="M-28 -14 C -6 -34, 14 34, 30 12" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
-    <path d="M-30 12 C -8 34, 12 -34, 28 -12" fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="6" stroke-linecap="round"/>
+  <!-- 아이콘 칩 (앱의 secondary-container 배경) -->
+  <rect x="60" y="84" width="112" height="112" rx="28" fill="#e8f3f0"/>
+
+  <!-- account_tree 로고 마크 (틸 아웃라인) -->
+  <g fill="none" stroke="#006b5f" stroke-width="3.2" stroke-linejoin="round">
+    <rect x="104" y="108" width="24" height="15" rx="4"/>
+    <rect x="80" y="150" width="24" height="15" rx="4"/>
+    <rect x="128" y="150" width="24" height="15" rx="4"/>
+    <path d="M116 123 V137 M92 137 H140 M92 137 V150 M140 137 V150" stroke-linecap="round"/>
   </g>
 
-  <!-- wordmark -->
-  <text x="192" y="196" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="92" font-weight="800" fill="#ffffff" letter-spacing="1">Weave</text>
-  <rect x="196" y="214" width="118" height="6" rx="3" fill="url(#accent)"/>
+  <!-- eyebrow -->
+  <text x="210" y="116" font-family="'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" letter-spacing="3.5" fill="#006b5f">AI MEETING WORKSPACE</text>
 
-  <!-- subtitle -->
-  <text x="198" y="258" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="25" font-weight="500" fill="#d7fbf3" letter-spacing="0.3">AI meeting workspace — record, transcribe, and weave it into project history.</text>
+  <!-- 워드마크 -->
+  <text x="206" y="174" font-family="'Pretendard', -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="74" font-weight="800" letter-spacing="-1" fill="#0d0d0d">Weave</text>
+
+  <!-- 틸 언더라인 액센트 -->
+  <rect x="210" y="188" width="88" height="5" rx="2.5" fill="#006b5f"/>
 </svg>
