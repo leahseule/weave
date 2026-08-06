@@ -1479,6 +1479,7 @@ function openExportModal(kind, id, label) {
       <h3>내보내기 · OKF</h3>
       <p class="hint" style="margin:0 0 16px">${esc(label)}의 컨텍스트를 AI가 읽을 수 있는 형태(OKF)로 내보내요.<br>공유 링크는 <b>24시간 후 만료</b>되고, 링크를 가진 누구나 볼 수 있어요.</p>
       <div class="export-actions">
+        <button class="btn btn-primary" id="ex-claude"><span class="material-symbols-outlined">auto_awesome</span> Claude로 열기</button>
         <button class="btn btn-primary" id="ex-gpt"><span class="material-symbols-outlined">forum</span> ChatGPT로 열기</button>
         <button class="btn" id="ex-open"><span class="material-symbols-outlined">open_in_new</span> 공유 링크 열기</button>
         <button class="btn" id="ex-link"><span class="material-symbols-outlined">link</span> 공유 링크 복사</button>
@@ -1491,17 +1492,21 @@ function openExportModal(kind, id, label) {
     return `${location.origin}/share/${r.token}`;
   };
   const busy = (btn, on, html) => { btn.disabled = on; if (html) btn.innerHTML = html; };
-  modal.querySelector("#ex-gpt").addEventListener("click", async (e) => {
-    const btn = e.currentTarget; busy(btn, true, `<span class="spinner"></span> 링크 생성 중…`);
+  const openInAI = async (btn, name, base, iconHtml) => {
+    busy(btn, true, `<span class="spinner"></span> 링크 생성 중…`);
     try {
       const url = await makeLink();
       const prompt = `다음 링크의 ${isProj ? "프로젝트" : "회의"} 컨텍스트(OKF)를 읽고 도와줘:\n${url}`;
       await navigator.clipboard.writeText(prompt).catch(() => {});
-      window.open(`https://chatgpt.com/?q=${encodeURIComponent(prompt)}`, "_blank", "noopener");
-      toast("ChatGPT를 열었어요 (프롬프트도 복사됨)");
+      window.open(base + encodeURIComponent(prompt), "_blank", "noopener");
+      toast(`${name}를 열었어요 (프롬프트도 복사됨)`);
       closeModal();
-    } catch (ex) { toast(ex.message); busy(btn, false, `<span class="material-symbols-outlined">forum</span> ChatGPT로 열기`); }
-  });
+    } catch (ex) { toast(ex.message); busy(btn, false, `${iconHtml} ${name}로 열기`); }
+  };
+  modal.querySelector("#ex-claude").addEventListener("click", (e) =>
+    openInAI(e.currentTarget, "Claude", "https://claude.ai/new?q=", `<span class="material-symbols-outlined">auto_awesome</span>`));
+  modal.querySelector("#ex-gpt").addEventListener("click", (e) =>
+    openInAI(e.currentTarget, "ChatGPT", "https://chatgpt.com/?q=", `<span class="material-symbols-outlined">forum</span>`));
   modal.querySelector("#ex-open").addEventListener("click", async (e) => {
     const btn = e.currentTarget; busy(btn, true, `<span class="spinner"></span> 링크 생성 중…`);
     try { window.open(await makeLink(), "_blank", "noopener"); toast("공유 페이지를 열었어요"); closeModal(); }
