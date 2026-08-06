@@ -24,6 +24,11 @@ const api = {
     }
     return res.status === 204 ? null : res.json();
   },
+  async _text(method, url) {
+    const res = await fetch(url, { method, cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.text();
+  },
   me: () => api._json("GET", "/auth/me"),
   register: (email, password) => api._json("POST", "/auth/register", { email, password }),
   login: (email, password) => api._json("POST", "/auth/login", { email, password }),
@@ -63,6 +68,10 @@ const api = {
   updateSource: (id, data) => api._json("PATCH", `/sources/${id}`, data),
   deleteSource: (id) => api._json("DELETE", `/sources/${id}`),
   retranscribe: (id) => api._json("POST", `/sources/${id}/retranscribe`),
+  shareSource: (id) => api._json("POST", `/sources/${id}/share`),
+  shareProject: (id) => api._json("POST", `/projects/${id}/share`),
+  okfSource: (id) => api._text("GET", `/sources/${id}/okf`),
+  okfProject: (id) => api._text("GET", `/projects/${id}/okf`),
   driveStatus: () => api._json("GET", "/drive/status"),
   driveDisconnect: () => api._json("DELETE", "/drive/disconnect"),
   driveSearch: (q) => api._json("GET", `/drive/search?q=${encodeURIComponent(q)}`),
@@ -810,13 +819,18 @@ async function renderProject(view, id) {
   view.replaceChildren();
 
   // 제목 (편집 가능자만: 꾹 누르거나 더블클릭해 편집)
-  const h1 = el(`<h1 class="page-title ${canEdit() ? "longpress" : ""}" style="margin:0 0 6px" ${canEdit() ? 'title="꾹 누르거나 더블클릭해 편집"' : ""}>${esc(p.name)}</h1>`);
+  const h1 = el(`<h1 class="page-title ${canEdit() ? "longpress" : ""}" style="margin:0 0 6px;flex:1;min-width:0" ${canEdit() ? 'title="꾹 누르거나 더블클릭해 편집"' : ""}>${esc(p.name)}</h1>`);
   if (canEdit()) {
     const editName = () => editText("프로젝트 이름", p.name, (v) => api.updateProject(p.id, { name: v }));
     attachLongPress(h1, () => [{ label: "이름 수정", icon: "edit", onClick: editName }]);
     h1.addEventListener("dblclick", editName);
   }
-  view.append(h1);
+  const pHead = el(`<div class="detail-title-row"></div>`);
+  pHead.append(h1);
+  const pExport = el(`<button class="icon-btn" title="내보내기 (OKF · ChatGPT)"><span class="material-symbols-outlined">ios_share</span></button>`);
+  pExport.addEventListener("click", () => openExportModal("project", p.id, p.name));
+  pHead.append(pExport);
+  view.append(pHead);
   const roleTag = viewRole && viewRole !== "owner" ? ` · ${viewRole === "viewer" ? "뷰어(읽기 전용)" : "에디터"}` : "";
   view.append(el(`<p class="page-sub" style="margin-bottom:28px">최종 업데이트 ${fmtWhen(p.updated_at)}${roleTag}</p>`));
 
@@ -1457,6 +1471,50 @@ function buildAudioCard(s) {
   return card;
 }
 
+// OKF 내보내기: ChatGPT로 열기 / 공유 링크 복사 / OKF 전체 복사
+function openExportModal(kind, id, label) {
+  const isProj = kind === "project";
+  const modal = el(`
+    <div>
+      <h3>내보내기 · OKF</h3>
+      <p class="hint" style="margin:0 0 16px">${esc(label)}의 컨텍스트를 AI가 읽을 수 있는 형태(OKF)로 내보내요.<br>공유 링크는 <b>24시간 후 만료</b>되고, 링크를 가진 누구나 볼 수 있어요.</p>
+      <div class="export-actions">
+        <button class="btn btn-primary" id="ex-gpt"><span class="material-symbols-outlined">forum</span> ChatGPT로 열기</button>
+        <button class="btn" id="ex-link"><span class="material-symbols-outlined">link</span> 공유 링크 복사</button>
+        <button class="btn" id="ex-copy"><span class="material-symbols-outlined">content_copy</span> OKF 전체 복사</button>
+      </div>
+      <div class="modal-actions"><button class="btn btn-ghost" id="ex-close">닫기</button></div>
+    </div>`);
+  const makeLink = async () => {
+    const r = isProj ? await api.shareProject(id) : await api.shareSource(id);
+    return `${location.origin}/share/${r.token}`;
+  };
+  const busy = (btn, on, html) => { btn.disabled = on; if (html) btn.innerHTML = html; };
+  modal.querySelector("#ex-gpt").addEventListener("click", async (e) => {
+    const btn = e.currentTarget; busy(btn, true, `<span class="spinner"></span> 링크 생성 중…`);
+    try {
+      const url = await makeLink();
+      const prompt = `다음 링크의 ${isProj ? "프로젝트" : "회의"} 컨텍스트(OKF)를 읽고 도와줘:\n${url}`;
+      await navigator.clipboard.writeText(prompt).catch(() => {});
+      window.open(`https://chatgpt.com/?q=${encodeURIComponent(prompt)}`, "_blank", "noopener");
+      toast("ChatGPT를 열었어요 (프롬프트도 복사됨)");
+      closeModal();
+    } catch (ex) { toast(ex.message); busy(btn, false, `<span class="material-symbols-outlined">forum</span> ChatGPT로 열기`); }
+  });
+  modal.querySelector("#ex-link").addEventListener("click", async (e) => {
+    const btn = e.currentTarget; busy(btn, true);
+    try { await navigator.clipboard.writeText(await makeLink()); toast("공유 링크 복사됨 (24시간 유효)"); closeModal(); }
+    catch (ex) { toast(ex.message); busy(btn, false); }
+  });
+  modal.querySelector("#ex-copy").addEventListener("click", async (e) => {
+    const btn = e.currentTarget; busy(btn, true);
+    try { await navigator.clipboard.writeText(isProj ? await api.okfProject(id) : await api.okfSource(id)); toast("OKF 전체가 복사됐어요"); closeModal(); }
+    catch (ex) { toast(ex.message); busy(btn, false); }
+  });
+  modal.querySelector("#ex-close").addEventListener("click", closeModal);
+  openModal(modal);
+}
+
 // --- Meeting detail (전사 상세) --------------------------------------------
 async function renderSourceDetail(view, pid, sid) {
   const p = await api.getProject(pid);
@@ -1480,6 +1538,11 @@ async function renderSourceDetail(view, pid, sid) {
     titleEl.addEventListener("dblclick", editTitle);
   }
   titleRow.append(titleEl);
+  if (s.type === "MEETING" || s.type === "NOTE") {
+    const exBtn = el(`<button class="icon-btn" title="내보내기 (OKF · ChatGPT)"><span class="material-symbols-outlined">ios_share</span></button>`);
+    exBtn.addEventListener("click", () => openExportModal("meeting", s.id, s.title));
+    titleRow.append(exBtn);
+  }
   if (canEdit()) {
     const delBtn = el(`<button class="icon-btn detail-delete" title="삭제"><span class="material-symbols-outlined">delete</span></button>`);
     delBtn.addEventListener("click", async () => {

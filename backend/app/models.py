@@ -215,6 +215,30 @@ class ProjectMember(Base):
     )
 
 
+class ShareLink(Base):
+    """OKF 컨텍스트 공개 공유 링크 (ChatGPT 등에 보내기용). 비밀 토큰 + 만료 + 해제."""
+
+    __tablename__ = "share_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # "meeting" | "project"
+    source_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), index=True
+    )
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    created_by: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class Setting(Base):
     """사용자별 키-값 설정 (예: 옵시디언 볼트 경로). (user_id, key) 복합 PK."""
 

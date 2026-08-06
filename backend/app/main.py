@@ -13,6 +13,7 @@ from app.routers import (
     meetings,
     obsidian,
     projects,
+    share,
     sources,
 )
 
@@ -45,6 +46,7 @@ app.include_router(calendar.router)
 app.include_router(drive.router)
 app.include_router(obsidian.router)
 app.include_router(files.router)
+app.include_router(share.router)
 
 
 @app.get("/health")
