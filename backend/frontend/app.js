@@ -1480,6 +1480,7 @@ function openExportModal(kind, id, label) {
       <p class="hint" style="margin:0 0 16px">${esc(label)}의 컨텍스트를 AI가 읽을 수 있는 형태(OKF)로 내보내요.<br>공유 링크는 <b>24시간 후 만료</b>되고, 링크를 가진 누구나 볼 수 있어요.</p>
       <div class="export-actions">
         <button class="btn btn-primary" id="ex-gpt"><span class="material-symbols-outlined">forum</span> ChatGPT로 열기</button>
+        <button class="btn" id="ex-open"><span class="material-symbols-outlined">open_in_new</span> 공유 링크 열기</button>
         <button class="btn" id="ex-link"><span class="material-symbols-outlined">link</span> 공유 링크 복사</button>
         <button class="btn" id="ex-copy"><span class="material-symbols-outlined">content_copy</span> OKF 전체 복사</button>
       </div>
@@ -1500,6 +1501,11 @@ function openExportModal(kind, id, label) {
       toast("ChatGPT를 열었어요 (프롬프트도 복사됨)");
       closeModal();
     } catch (ex) { toast(ex.message); busy(btn, false, `<span class="material-symbols-outlined">forum</span> ChatGPT로 열기`); }
+  });
+  modal.querySelector("#ex-open").addEventListener("click", async (e) => {
+    const btn = e.currentTarget; busy(btn, true, `<span class="spinner"></span> 링크 생성 중…`);
+    try { window.open(await makeLink(), "_blank", "noopener"); toast("공유 페이지를 열었어요"); closeModal(); }
+    catch (ex) { toast(ex.message); busy(btn, false, `<span class="material-symbols-outlined">open_in_new</span> 공유 링크 열기`); }
   });
   modal.querySelector("#ex-link").addEventListener("click", async (e) => {
     const btn = e.currentTarget; busy(btn, true);
