@@ -117,6 +117,35 @@ def _split_to_chunks(content: bytes, filename: str):
     return tmpdir, chunks
 
 
+def transcribe_chunk(filename: str, content: bytes) -> str:
+    """짧은 오디오 조각을 전사해 평문 텍스트만 반환 (실시간 미리보기용).
+
+    무음/실패 시 예외 없이 '' 반환. 조각이 짧아 정규화·분할은 생략.
+    """
+    if not settings.openai_api_key:
+        return ""
+    try:
+        client = OpenAI(api_key=settings.openai_api_key)
+        resp = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=(filename or "chunk.webm", content),
+            response_format="verbose_json",
+            temperature=0,
+        )
+        parts: list[str] = []
+        for seg in getattr(resp, "segments", None) or []:
+            text = (_seg_attr(seg, "text", "") or "").strip()
+            if text and (_seg_attr(seg, "no_speech_prob", 0.0) or 0.0) <= 0.6:
+                parts.append(text)
+        if not parts:
+            t = (getattr(resp, "text", "") or "").strip()
+            if t:
+                parts.append(t)
+        return " ".join(parts).strip()
+    except Exception:  # noqa: BLE001 — 미리보기는 실패해도 조용히 넘어감
+        return ""
+
+
 def transcribe(filename: str, content: bytes) -> str:
     """오디오를 Whisper로 전사. 25MB 초과 시 조각내어 전사 후 이어붙인다.
 

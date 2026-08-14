@@ -29,7 +29,7 @@ from app.services import link_title
 from app.services import obsidian as obs_svc
 from app.services import storage
 from app.services.extraction import extract_meeting
-from app.services.transcription import TranscriptionError, transcribe
+from app.services.transcription import TranscriptionError, transcribe, transcribe_chunk
 
 router = APIRouter(tags=["sources"])
 
@@ -297,6 +297,17 @@ def create_meeting_from_audio(
         MeetingOrigin.AUDIO, attendees=names, note=(note or "").strip() or None,
         audio_key=audio_key, enrich=bool(transcript),
     )
+
+
+@router.post("/transcribe-chunk")
+def transcribe_chunk_endpoint(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+):
+    """실시간 미리보기용: 짧은 오디오 조각을 전사해 텍스트만 반환 (소스 생성 안 함)."""
+    block_demo(user, "실시간 전사")
+    content = file.file.read()
+    return {"text": transcribe_chunk(file.filename or "chunk.webm", content)}
 
 
 @router.post("/sources/{source_id}/retranscribe", response_model=SourceOut)
