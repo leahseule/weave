@@ -1598,11 +1598,6 @@ async function renderSourceDetail(view, pid, sid) {
     titleEl.addEventListener("dblclick", editTitle);
   }
   titleRow.append(titleEl);
-  if (s.type === "MEETING" || s.type === "NOTE") {
-    const exBtn = el(`<button class="icon-btn detail-export" title="내보내기 (OKF · ChatGPT)"><span class="material-symbols-outlined">ios_share</span></button>`);
-    exBtn.addEventListener("click", () => openExportModal("meeting", s.id, s.title));
-    titleRow.append(exBtn);
-  }
   if (canEdit()) {
     const delBtn = el(`<button class="icon-btn detail-delete" title="삭제"><span class="material-symbols-outlined">delete</span></button>`);
     delBtn.addEventListener("click", async () => {
@@ -1623,7 +1618,14 @@ async function renderSourceDetail(view, pid, sid) {
   // 연결된 프로젝트 (편집 가능자만 이동)
   const projChip = el(`<button class="proj-chip"${canEdit() ? "" : " disabled"}><span class="material-symbols-outlined">folder</span>${esc(p.name)}${canEdit() ? '<span class="material-symbols-outlined">expand_more</span>' : ""}</button>`);
   if (canEdit()) projChip.addEventListener("click", () => openMoveMeetingModal(p.id, s.id));
-  view.append(projChip);
+  const subRow = el(`<div class="detail-subrow"></div>`);
+  subRow.append(projChip);
+  if (s.type === "MEETING" || s.type === "NOTE") {
+    const exBtn = el(`<button class="btn btn-sm btn-ghost"><span class="material-symbols-outlined">ios_share</span>내보내기</button>`);
+    exBtn.addEventListener("click", () => openExportModal("meeting", s.id, s.title));
+    subRow.append(exBtn);
+  }
+  view.append(subRow);
 
   // 참석자 (회의)
   if (s.type === "MEETING") view.append(buildAttendeesRow(s));

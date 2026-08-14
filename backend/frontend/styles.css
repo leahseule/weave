@@ -316,6 +316,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 44px 40px 110px; }
 }
 .proj-chip:hover { background: var(--surface-container); }
 .proj-chip .material-symbols-outlined { font-size: 17px; }
+.detail-subrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+.detail-subrow .proj-chip { margin-bottom: 0; }
 .proj-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; max-height: 52vh; overflow-y: auto; }
 .proj-option {
   display: flex; align-items: center; gap: 10px; border: 1px solid var(--outline-variant);
