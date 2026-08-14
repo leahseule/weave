@@ -256,6 +256,7 @@ let lastHash = null; // 스크롤 보존용: 같은 경로 재렌더인지 판�
 let lastDetailHash = null; // '최근(이어보기)'용: 마지막으로 본 프로젝트/회의 상세
 function cleanupRec() {
   if (!rec) return;
+  try { if (rec.recognition) { rec.recognition.onend = null; rec.recognition.stop(); } } catch (_) {}
   try { if (rec.recorder && rec.recorder.state !== "inactive") rec.recorder.stop(); } catch (_) {}
   try { [rec.stream, rec.micStream, rec.displayStream].forEach((s) => s && s.getTracks().forEach((t) => t.stop())); } catch (_) {}
   clearInterval(rec.timer);
@@ -604,6 +605,35 @@ async function renderRecord(view, pid) {
   let noteText = "";  // 녹음 중 작성하는 메모 (그래놀라식)
   let noteEditor = null;  // 마크다운 라이브 에디터
   let useSystemAudio = false;  // 시스템(화면/탭) 소리도 함께 녹음할지
+  const liveSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  // 실시간 자막 (Web Speech API) — 내 마이크 기준 미리보기. 최종본은 Whisper가 담당.
+  const startLiveCaption = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR || !rec) return;
+    const r = new SR();
+    r.lang = "ko-KR";
+    r.continuous = true;
+    r.interimResults = true;
+    r.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) rec.liveFinal += t + " ";
+        else interim += t;
+      }
+      if (rec && rec.liveEl) {
+        rec.liveEl.innerHTML = esc(rec.liveFinal) + (interim ? `<span class="live-interim">${esc(interim)}</span>` : "");
+        rec.liveEl.scrollTop = rec.liveEl.scrollHeight;
+      }
+    };
+    r.onerror = () => {};  // no-speech 등은 무시 (onend에서 재시작)
+    r.onend = () => { if (rec && rec.recorder && rec.recorder.state === "recording") { try { r.start(); } catch (_) {} } };
+    try { r.start(); rec.recognition = r; } catch (_) {}
+  };
+  const stopLiveCaption = () => {
+    if (rec && rec.recognition) { try { rec.recognition.onend = null; rec.recognition.stop(); } catch (_) {} rec.recognition = null; }
+  };
 
   const showIdle = () => {
     screen.replaceChildren();
@@ -654,17 +684,25 @@ async function renderRecord(view, pid) {
         rec.pauseStart = Date.now();
         clearInterval(rec.timer); rec.timer = null;
         cancelAnimationFrame(rec.raf); rec.raf = null;
+        stopLiveCaption();
         setPausedUI(true);
       } else if (rec.recorder.state === "paused") {
         rec.pausedMs += Date.now() - rec.pauseStart;
         rec.recorder.resume();
         startTimer();
         startWave();
+        startLiveCaption();
         setPausedUI(false);
       }
     });
     head.append(dot, status, timer, bars, pauseBtn, stop);
     screen.append(head);
+    // 실시간 자막 (Web Speech 지원 브라우저에서만)
+    if (liveSupported) {
+      const liveCard = el(`<section class="card record-live-card"><div class="record-note-label"><span class="material-symbols-outlined">closed_caption</span> 실시간 전사 · 미리보기 (내 마이크)</div><div class="record-live-text"></div></section>`);
+      screen.append(liveCard);
+      if (rec) { rec.liveEl = liveCard.querySelector(".record-live-text"); if (rec.liveFinal) rec.liveEl.innerHTML = esc(rec.liveFinal); }
+    }
     // 그래놀라식: 녹음 중 메모 (마크다운 라이브 에디터 — Enter로 렌더 적용)
     const noteCard = el(`<section class="card record-note-card"></section>`);
     noteCard.append(el(`<div class="record-note-label"><span class="material-symbols-outlined">stylus_note</span> 내 메모 · Markdown (Enter로 적용)</div>`));
@@ -753,7 +791,7 @@ async function renderRecord(view, pid) {
     recorder.addEventListener("dataavailable", (e) => { if (e.data.size) chunks.push(e.data); });
     // 상대가 화면 공유를 중지 버튼으로 끊으면 녹음도 마무리
     if (displayStream) displayStream.getTracks().forEach((t) => t.addEventListener("ended", () => { if (rec) stopRecording(); }));
-    rec = { recorder, stream: recordStream, micStream, displayStream, chunks, mime, startedAt: Date.now(), pausedMs: 0, pauseStart: 0, timer: null, raf: null, audioCtx, analyser: null, waveData: null };
+    rec = { recorder, stream: recordStream, micStream, displayStream, chunks, mime, startedAt: Date.now(), pausedMs: 0, pauseStart: 0, timer: null, raf: null, audioCtx, analyser: null, waveData: null, liveFinal: "", liveEl: null, recognition: null };
     recorder.start();
     showRecording();
     startTimer();
@@ -770,10 +808,13 @@ async function renderRecord(view, pid) {
       rec.waveData = new Uint8Array(rec.analyser.frequencyBinCount);
       startWave();
     } catch (_) {}
+
+    startLiveCaption();  // 실시간 자막 시작 (지원 브라우저)
   }
 
   async function stopRecording() {
     if (!rec || !rec.recorder) return;
+    stopLiveCaption();
     if (noteEditor) noteText = noteEditor.getValue();  // 화면 교체 전에 메모 확정
     const { recorder, chunks, stream, mime } = rec;
     clearInterval(rec.timer);

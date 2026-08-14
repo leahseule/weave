@@ -538,6 +538,10 @@ main { max-width: 1200px; margin: 0 auto; padding: 44px 40px 110px; }
 .mde .mde-rendered hr.md-hr { margin: 10px 0; }  /* 에디터에서 가로줄 보이게 */
 .mde.mde-empty::before { content: attr(data-ph); color: var(--on-surface-variant); pointer-events: none; position: absolute; top: 0; left: 0; }
 .record-note-editor { min-height: 380px; }
+.record-live-card { width: 100%; max-width: 640px; text-align: left; }
+.record-live-text { min-height: 54px; max-height: 200px; overflow-y: auto; font-size: 14px; line-height: 1.75; color: var(--on-surface); white-space: pre-wrap; word-break: break-word; }
+.record-live-text:empty::before { content: "말하면 여기에 실시간으로 받아써요…"; color: var(--on-surface-variant); }
+.record-live-text .live-interim { color: var(--on-surface-variant); }
 .record-sysaudio { display: flex; align-items: flex-start; gap: 9px; max-width: 380px; margin: 6px auto 0; text-align: left; cursor: pointer; padding: 11px 13px; border: 1px solid var(--outline-variant); border-radius: 12px; background: var(--card); }
 .record-sysaudio input { margin-top: 2px; accent-color: var(--secondary); width: 16px; height: 16px; flex: 0 0 auto; }
 .record-sysaudio > span { display: flex; flex-direction: column; gap: 3px; }
