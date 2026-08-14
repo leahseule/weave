@@ -257,7 +257,7 @@ let lastDetailHash = null; // '최근(이어보기)'용: 마지막으로 본 프
 function cleanupRec() {
   if (!rec) return;
   try { if (rec.recorder && rec.recorder.state !== "inactive") rec.recorder.stop(); } catch (_) {}
-  try { rec.stream && rec.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+  try { [rec.stream, rec.micStream, rec.displayStream].forEach((s) => s && s.getTracks().forEach((t) => t.stop())); } catch (_) {}
   clearInterval(rec.timer);
   cancelAnimationFrame(rec.raf);
   try { rec.audioCtx && rec.audioCtx.close(); } catch (_) {}
@@ -603,6 +603,7 @@ async function renderRecord(view, pid) {
   let attendees = [];
   let noteText = "";  // 녹음 중 작성하는 메모 (그래놀라식)
   let noteEditor = null;  // 마크다운 라이브 에디터
+  let useSystemAudio = false;  // 시스템(화면/탭) 소리도 함께 녹음할지
 
   const showIdle = () => {
     screen.replaceChildren();
@@ -615,6 +616,12 @@ async function renderRecord(view, pid) {
     const btn = el(`<button class="record-btn" title="녹음 시작"><span class="material-symbols-outlined">mic</span></button>`);
     btn.addEventListener("click", startRecording);
     screen.append(btn, el(`<div class="record-sub">탭하여 녹음 시작</div>`));
+    // 시스템(화면/탭) 소리 포함 토글 — 온라인 회의 상대 목소리까지 녹음
+    const sysWrap = el(`<label class="record-sysaudio"><input type="checkbox"><span><b>시스템 소리도 함께 녹음</b><small>온라인 회의 상대 목소리까지. 시작 시 화면 공유 창에서 <b>‘오디오 공유’를 체크</b>하세요. (데스크톱 크롬·엣지)</small></span></label>`);
+    const sysInput = sysWrap.querySelector("input");
+    sysInput.checked = useSystemAudio;
+    sysInput.addEventListener("change", (e) => { useSystemAudio = e.target.checked; });
+    screen.append(sysWrap);
     const upload = el(`<button class="btn btn-ghost record-alt"><span class="material-symbols-outlined">upload</span>음성 파일 업로드</button>`);
     upload.addEventListener("click", () => openAudioModal(pid));
     const cancel = el(`<button class="btn btn-ghost">취소</button>`);
@@ -693,31 +700,73 @@ async function renderRecord(view, pid) {
 
   async function startRecording() {
     if (attendeeCtl) attendees = attendeeCtl.get();  // 녹음 시작 시점 참석자 확정
-    let stream;
+
+    // 마이크 (AGC 끄고 노이즈 억제·에코 제거)
+    let micStream;
     try {
-      // AGC(자동 게인) 끄고 노이즈 억제·에코 제거 → 조용할 때 감도 과하게 오르는 것 방지
-      stream = await navigator.mediaDevices.getUserMedia({
+      micStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
       });
     } catch (e) { toast("마이크 권한이 필요해요"); return; }
 
+    let displayStream = null;
+    let recordStream = micStream;   // 기본: 마이크만
+    let audioCtx = null;
+
+    // 시스템(화면/탭) 소리 포함 → getDisplayMedia로 받아 마이크와 믹싱
+    if (useSystemAudio) {
+      try {
+        displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      } catch (e) {
+        micStream.getTracks().forEach((t) => t.stop());
+        toast("화면 공유가 취소됐어요");
+        return;
+      }
+      displayStream.getVideoTracks().forEach((t) => t.stop());  // 영상은 버림
+      const sysAudio = displayStream.getAudioTracks();
+      if (!sysAudio.length) {
+        displayStream.getTracks().forEach((t) => t.stop());
+        micStream.getTracks().forEach((t) => t.stop());
+        toast("‘오디오 공유(탭/시스템 소리)’를 체크해야 소리가 녹음돼요");
+        return;
+      }
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioCtx();
+        const dest = audioCtx.createMediaStreamDestination();
+        audioCtx.createMediaStreamSource(micStream).connect(dest);
+        audioCtx.createMediaStreamSource(new MediaStream(sysAudio)).connect(dest);
+        recordStream = dest.stream;  // 마이크+시스템 믹스
+      } catch (e) {
+        displayStream.getTracks().forEach((t) => t.stop());
+        micStream.getTracks().forEach((t) => t.stop());
+        toast("오디오 믹싱에 실패했어요");
+        return;
+      }
+    }
+
     const mime = MediaRecorder.isTypeSupported("audio/webm")
       ? "audio/webm"
       : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
-    const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    const recorder = new MediaRecorder(recordStream, mime ? { mimeType: mime } : undefined);
     const chunks = [];
     recorder.addEventListener("dataavailable", (e) => { if (e.data.size) chunks.push(e.data); });
-    rec = { recorder, stream, chunks, mime, startedAt: Date.now(), pausedMs: 0, pauseStart: 0, timer: null, raf: null, audioCtx: null, analyser: null, waveData: null };
+    // 상대가 화면 공유를 중지 버튼으로 끊으면 녹음도 마무리
+    if (displayStream) displayStream.getTracks().forEach((t) => t.addEventListener("ended", () => { if (rec) stopRecording(); }));
+    rec = { recorder, stream: recordStream, micStream, displayStream, chunks, mime, startedAt: Date.now(), pausedMs: 0, pauseStart: 0, timer: null, raf: null, audioCtx, analyser: null, waveData: null };
     recorder.start();
     showRecording();
     startTimer();
 
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      rec.audioCtx = new AudioCtx();
-      rec.analyser = rec.audioCtx.createAnalyser();
+      if (!audioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioCtx();
+        rec.audioCtx = audioCtx;
+      }
+      rec.analyser = audioCtx.createAnalyser();
       rec.analyser.fftSize = 64;
-      rec.audioCtx.createMediaStreamSource(stream).connect(rec.analyser);
+      audioCtx.createMediaStreamSource(recordStream).connect(rec.analyser);
       rec.waveData = new Uint8Array(rec.analyser.frequencyBinCount);
       startWave();
     } catch (_) {}
@@ -733,7 +782,7 @@ async function renderRecord(view, pid) {
     const done = new Promise((r) => recorder.addEventListener("stop", r, { once: true }));
     recorder.stop();
     await done;
-    stream.getTracks().forEach((t) => t.stop());
+    [stream, rec.micStream, rec.displayStream].forEach((s) => s && s.getTracks().forEach((t) => t.stop()));
     try { rec.audioCtx && rec.audioCtx.close(); } catch (_) {}
     const type = mime || "audio/webm";
     const ext = type.includes("mp4") ? "mp4" : "webm";
