@@ -617,7 +617,7 @@ async function renderRecord(view, pid) {
   let attendees = [];
   let noteText = "";  // 녹음 중 작성하는 메모 (그래놀라식)
   let noteEditor = null;  // 마크다운 라이브 에디터
-  let useSystemAudio = false;  // 시스템(화면/탭) 소리도 함께 녹음할지
+  let useSystemAudio = true;  // 시스템(화면/탭) 소리도 함께 녹음 (기본 켜짐)
   const liveSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
   // 실시간 자막 렌더 (세그먼트별 줄바꿈 + 전사 중 로딩 애니메이션)
