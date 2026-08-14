@@ -625,7 +625,7 @@ async function renderRecord(view, pid) {
     if (!rec || !rec.liveEl) return;
     let html = (rec.liveLines || []).map(esc).join("<br>");
     if (rec.liveInterim) html += (html ? "<br>" : "") + `<span class="live-interim">${esc(rec.liveInterim)}</span>`;
-    if (rec.chunkLoading) html += (html ? "<br>" : "") + `<span class="live-loading" title="전사 중"><i></i><i></i><i></i></span>`;
+    if (rec.liveActive) html += (html ? "<br>" : "") + `<span class="live-loading" title="실시간 전사 중"><i></i><i></i><i></i></span>`;
     rec.liveEl.innerHTML = html;
     rec.liveEl.scrollTop = rec.liveEl.scrollHeight;
   };
@@ -650,10 +650,11 @@ async function renderRecord(view, pid) {
     };
     r.onerror = () => {};  // no-speech 등은 무시 (onend에서 재시작)
     r.onend = () => { if (rec && rec.recorder && rec.recorder.state === "recording") { try { r.start(); } catch (_) {} } };
-    try { r.start(); rec.recognition = r; } catch (_) {}
+    try { r.start(); rec.recognition = r; rec.liveActive = true; renderLive(); } catch (_) {}
   };
   const stopLiveCaption = () => {
     if (rec && rec.recognition) { try { rec.recognition.onend = null; rec.recognition.stop(); } catch (_) {} rec.recognition = null; }
+    if (rec) { rec.liveActive = false; renderLive(); }
   };
 
   // 청크 Whisper (near-real-time) — 믹스(마이크+시스템) 오디오를 ~10초씩 잘라 전사
@@ -670,12 +671,10 @@ async function renderRecord(view, pid) {
       cr.addEventListener("stop", async () => {
         const blob = new Blob(parts, { type: segMime || "audio/webm" });
         if (blob.size > 1200) {
-          if (rec) { rec.chunkLoading = true; renderLive(); }  // 로딩 애니메이션
           try {
             const { text } = await api.transcribeChunk(blob, segMime);
-            if (text && text.trim() && rec) rec.liveLines.push(text.trim());  // 세그먼트별 줄
+            if (text && text.trim() && rec) { rec.liveLines.push(text.trim()); renderLive(); }  // 세그먼트별 줄
           } catch (_) {}
-          if (rec) { rec.chunkLoading = false; renderLive(); }
         }
         if (rec && rec.chunkOn) runSeg();  // 다음 조각
       });
@@ -684,14 +683,18 @@ async function renderRecord(view, pid) {
       rec.chunkTimer = setTimeout(() => { try { if (cr.state !== "inactive") cr.stop(); } catch (_) {} }, CHUNK_MS);
     };
     rec.chunkOn = true;
+    rec.liveActive = true;
+    renderLive();  // 시작 즉시 실시간 표시(점)
     runSeg();
   };
   const stopChunkTranscribe = () => {
     if (!rec) return;
     rec.chunkOn = false;
+    rec.liveActive = false;
     if (rec.chunkTimer) { clearTimeout(rec.chunkTimer); rec.chunkTimer = null; }
     if (rec.chunkRecorder && rec.chunkRecorder.state !== "inactive") { try { rec.chunkRecorder.stop(); } catch (_) {} }
     rec.chunkRecorder = null;
+    renderLive();
   };
 
   const showIdle = () => {
@@ -851,7 +854,7 @@ async function renderRecord(view, pid) {
     recorder.addEventListener("dataavailable", (e) => { if (e.data.size) chunks.push(e.data); });
     // 상대가 화면 공유를 중지 버튼으로 끊으면 녹음도 마무리
     if (displayStream) displayStream.getTracks().forEach((t) => t.addEventListener("ended", () => { if (rec) stopRecording(); }));
-    rec = { recorder, stream: recordStream, micStream, displayStream, chunks, mime, startedAt: Date.now(), pausedMs: 0, pauseStart: 0, timer: null, raf: null, audioCtx, analyser: null, waveData: null, liveLines: [], liveInterim: "", chunkLoading: false, liveEl: null, recognition: null, chunkRecorder: null, chunkTimer: null, chunkOn: false };
+    rec = { recorder, stream: recordStream, micStream, displayStream, chunks, mime, startedAt: Date.now(), pausedMs: 0, pauseStart: 0, timer: null, raf: null, audioCtx, analyser: null, waveData: null, liveLines: [], liveInterim: "", liveActive: false, liveEl: null, recognition: null, chunkRecorder: null, chunkTimer: null, chunkOn: false };
     recorder.start();
     showRecording();
     startTimer();
