@@ -542,6 +542,11 @@ main { max-width: 1200px; margin: 0 auto; padding: 44px 40px 110px; }
 .record-live-text { min-height: 54px; max-height: 200px; overflow-y: auto; font-size: 14px; line-height: 1.75; color: var(--on-surface); white-space: pre-wrap; word-break: break-word; }
 .record-live-text:empty::before { content: "말하면 여기에 실시간으로 받아써요…"; color: var(--on-surface-variant); }
 .record-live-text .live-interim { color: var(--on-surface-variant); }
+.live-loading { display: inline-flex; gap: 5px; align-items: center; vertical-align: middle; padding: 2px 0; }
+.live-loading i { width: 6px; height: 6px; border-radius: 50%; background: var(--secondary); opacity: 0.4; animation: live-dot 1s infinite ease-in-out; }
+.live-loading i:nth-child(2) { animation-delay: 0.15s; }
+.live-loading i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes live-dot { 0%, 100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
 .record-sysaudio { display: flex; align-items: flex-start; gap: 9px; max-width: 380px; margin: 6px auto 0; text-align: left; cursor: pointer; padding: 11px 13px; border: 1px solid var(--outline-variant); border-radius: 12px; background: var(--card); }
 .record-sysaudio input { margin-top: 2px; accent-color: var(--secondary); width: 16px; height: 16px; flex: 0 0 auto; }
 .record-sysaudio > span { display: flex; flex-direction: column; gap: 3px; }
