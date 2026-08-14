@@ -450,11 +450,8 @@ async function renderHome(view) {
   tabs.append(mkTab("활성", true), mkTab("비활성", false));
   view.append(tabs);
 
-  if (projects.length === 0) {
-    const msg = homeActive
-      ? "활성 프로젝트가 없어요.<br>오른쪽 위 '새 프로젝트'로 시작하세요."
-      : "비활성 프로젝트가 없어요.";
-    view.append(el(`<div class="empty"><span class="material-symbols-outlined">folder_open</span>${msg}</div>`));
+  if (projects.length === 0 && !homeActive) {
+    view.append(el(`<div class="empty"><span class="material-symbols-outlined">folder_open</span>비활성 프로젝트가 없어요.</div>`));
     return;
   }
 
@@ -477,6 +474,12 @@ async function renderHome(view) {
         : { label: "활성화", icon: "unarchive", onClick: async () => { try { await api.updateProject(p.id, { active: true }); render(); } catch (e) { toast(e.message); } } },
     ]);
     grid.append(card);
+  }
+  // 새 프로젝트 추가 카드 (활성 탭에서만) — 카드들 옆에 은은한 점선 카드
+  if (homeActive) {
+    const addCard = el(`<button class="add-project-card"><span class="material-symbols-outlined">add</span>새 프로젝트</button>`);
+    addCard.addEventListener("click", createEmptyProject);
+    grid.append(addCard);
   }
   view.append(grid);
 }
@@ -2212,7 +2215,6 @@ async function createEmptyProject() {
     location.hash = `#/projects/${p.id}`;
   } catch (e) { toast(e.message); }
 }
-document.getElementById("new-project-btn").addEventListener("click", createEmptyProject);
 
 // --- Bottom navigation -----------------------------------------------------
 function currentProjectId() {

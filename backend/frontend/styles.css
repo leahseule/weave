@@ -209,6 +209,14 @@ main { max-width: 1200px; margin: 0 auto; padding: 44px 40px 110px; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .project-card .meta { margin-top: auto; }
+.add-project-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  height: 184px; border: 1.5px dashed var(--outline-variant); border-radius: var(--radius);
+  background: transparent; color: var(--on-surface-variant); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.add-project-card:hover { border-color: var(--secondary); color: var(--secondary); background: var(--secondary-container); }
+.add-project-card .material-symbols-outlined { font-size: 28px; }
 .meta { display: flex; gap: 14px; color: var(--on-surface-variant); font-size: 13px; }
 .meta span { display: inline-flex; align-items: center; gap: 4px; }
 .meta .material-symbols-outlined { font-size: 16px; }
@@ -220,6 +228,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 44px 40px 110px; }
   .topbar { padding: 14px 18px; }
   .project-card { height: auto; min-height: 140px; }
   .project-card .obj { -webkit-line-clamp: 4; margin-bottom: 16px; }
+  .add-project-card { height: auto; min-height: 140px; }
 }
 
 /* --- Timeline --- */
