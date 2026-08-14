@@ -424,6 +424,10 @@ main { max-width: 1200px; margin: 0 auto; padding: 44px 40px 110px; }
 .ctx-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--on-surface-variant); text-transform: uppercase; margin-bottom: 8px; }
 .objective { font-style: italic; color: var(--on-surface-variant); }
 .objective:empty::before { content: "첫 회의를 추가하면 목표가 자동으로 채워집니다"; color: var(--outline-variant); }
+.objective-add { display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; background: none; border: none; color: var(--secondary); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.objective-add:hover { text-decoration: underline; }
+.objective-add .material-symbols-outlined { font-size: 18px; }
+.objective-empty { font-style: italic; }
 .decision { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; font-size: 14px; }
 .decision .material-symbols-outlined { font-size: 18px; color: var(--secondary); flex-shrink: 0; margin-top: 1px; }
 .decision.proposed { color: var(--on-surface-variant); }

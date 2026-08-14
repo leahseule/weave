@@ -1848,12 +1848,23 @@ function renderContext(p) {
   const editable = canEdit();
   const card = el(`<section class="card"><h2 class="section-title"><span class="material-symbols-outlined">bubble_chart</span>Context</h2></section>`);
 
-  // Objective (편집 가능자만 꾹 눌러 편집)
+  // Objective — 더블클릭/꾹 눌러 편집, 비어있으면 '＋ 목표 추가'
   const objBlock = el(`<div class="ctx-block"><div class="ctx-label">Objective</div></div>`);
-  const objText = el(`<p class="objective ${editable ? "longpress" : ""}" ${editable ? 'title="꾹 눌러 편집"' : ""}>${esc(p.objective || "")}</p>`);
-  if (editable) attachLongPress(objText, () => [
-    { label: "목표 수정", icon: "edit", onClick: () => editText("프로젝트 목표", p.objective, (v) => api.updateProject(p.id, { objective: v }), { multiline: true }) },
-  ]);
+  const editObjective = () => editText("프로젝트 목표", p.objective || "", (v) => api.updateProject(p.id, { objective: v }), { multiline: true, placeholder: "이 프로젝트로 이루려는 목표는?" });
+  const hasObj = !!(p.objective && p.objective.trim());
+  let objText;
+  if (hasObj) {
+    objText = el(`<p class="objective ${editable ? "longpress" : ""}" ${editable ? 'title="더블클릭하거나 꾹 눌러 편집"' : ""}>${esc(p.objective)}</p>`);
+    if (editable) {
+      attachLongPress(objText, () => [{ label: "목표 수정", icon: "edit", onClick: editObjective }]);
+      objText.addEventListener("dblclick", editObjective);
+    }
+  } else if (editable) {
+    objText = el(`<button class="objective-add"><span class="material-symbols-outlined">add</span>목표 추가</button>`);
+    objText.addEventListener("click", editObjective);
+  } else {
+    objText = el(`<p class="objective objective-empty">목표가 없습니다.</p>`);
+  }
   objBlock.append(objText);
   card.append(objBlock);
 
