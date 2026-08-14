@@ -876,7 +876,7 @@ async function renderProject(view, id) {
   }
   const pHead = el(`<div class="detail-title-row"></div>`);
   pHead.append(h1);
-  const pExport = el(`<button class="icon-btn" title="내보내기 (OKF · ChatGPT)"><span class="material-symbols-outlined">ios_share</span></button>`);
+  const pExport = el(`<button class="icon-btn detail-export" title="내보내기 (OKF · ChatGPT)"><span class="material-symbols-outlined">ios_share</span></button>`);
   pExport.addEventListener("click", () => openExportModal("project", p.id, p.name));
   pHead.append(pExport);
   view.append(pHead);
@@ -1599,7 +1599,7 @@ async function renderSourceDetail(view, pid, sid) {
   }
   titleRow.append(titleEl);
   if (s.type === "MEETING" || s.type === "NOTE") {
-    const exBtn = el(`<button class="icon-btn" title="내보내기 (OKF · ChatGPT)"><span class="material-symbols-outlined">ios_share</span></button>`);
+    const exBtn = el(`<button class="icon-btn detail-export" title="내보내기 (OKF · ChatGPT)"><span class="material-symbols-outlined">ios_share</span></button>`);
     exBtn.addEventListener("click", () => openExportModal("meeting", s.id, s.title));
     titleRow.append(exBtn);
   }

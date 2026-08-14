@@ -307,6 +307,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 44px 40px 110px; }
 .detail-title-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
 .detail-delete { flex: 0 0 auto; margin-top: 7px; color: var(--on-surface-variant); opacity: 0.4; transition: opacity 0.12s, color 0.12s; }
 .detail-delete:hover { opacity: 1; color: var(--error); }
+.detail-export { flex: 0 0 auto; margin-top: 7px; color: var(--on-surface-variant); opacity: 0.7; transition: opacity 0.12s, color 0.12s; }
+.detail-export:hover { opacity: 1; color: var(--secondary); }
 .proj-chip {
   display: inline-flex; align-items: center; gap: 6px; margin-bottom: 24px;
   border: 1px solid var(--outline-variant); background: var(--card); border-radius: 999px;
